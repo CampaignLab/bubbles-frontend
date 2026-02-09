@@ -5,9 +5,10 @@ import { LogConsole } from "@/components/LogConsole";
 import { AnalyticsControls } from "../analytics/AnalyticsControls";
 
 /**
- * Feature component that composes the MapView with Boundary-specific logic.
+ * Boundary Page component.
+ * Composes the map, selection controls, and audience analytics pipeline.
  */
-export default function BoundaryOverlay() {
+export default function BoundaryPage() {
     const { selectedId, setSelectedId, geojson } = useBoundaries();
 
     return (
