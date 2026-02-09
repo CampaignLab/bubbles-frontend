@@ -8,6 +8,7 @@ import { defaultMapConfig } from './lib/config'
 function App() {
   const [count, setCount] = useState(0)
   const config = defaultMapConfig;
+  console.log("Env Key Check:", import.meta.env.BUBBLES_PROTOMAPS_API_KEY);
   return <ProtomapsMap mapConfig={config} />
 
   // return (

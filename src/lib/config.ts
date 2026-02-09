@@ -19,8 +19,8 @@ export interface SystemConfig {
 
 export interface MapConfig {
     id: string;
-    name: string;
-    isDefault: boolean;
+    name?: string;
+    isDefault?: boolean;
     mapSystem: MapProvider;
     baseMapKey: string;
     themeKey: string;
@@ -28,8 +28,8 @@ export interface MapConfig {
     startLat: number;
     startLng: number;
     startZoom: number;
-    minZoom: number;
-    maxZoom: number;
+    minZoom?: number;
+    maxZoom?: number;
 }
 
 export const mapConfigurations: Record<MapProvider, SystemConfig> = {
@@ -61,7 +61,7 @@ export const defaultMapConfig: MapConfig = {
     baseMapKey: 'protomaps',
     themeKey: 'light',
     // Pull the key from Vite's env system
-    apiKey: import.meta.env.PROTOMAPS_API_KEY || '',
+    apiKey: import.meta.env.VITE_PROTOMAPS_API_KEY || '',
     startLat: 54.5,
     startLng: -2.5,
     startZoom: 5,
