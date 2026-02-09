@@ -23,6 +23,26 @@ export function AnalyticsControls({ activeBoundaryId }: AnalyticsControlsProps) 
         addLog?.(`Upload Successful`, "success", `Audience custom-list created on ${platform}`);
     };
 
+    const copyToClipboard = () => {
+        if (!result?.csv_preview) return;
+        navigator.clipboard.writeText(result.csv_preview);
+        addLog?.("CSV Copied", "success", "Data copied to clipboard");
+    };
+
+    const downloadCSV = () => {
+        if (!result?.csv_preview) return;
+        const blob = new Blob([result.csv_preview], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.setAttribute('hidden', '');
+        a.setAttribute('href', url);
+        a.setAttribute('download', `audience_${activeBoundaryId || 'export'}.csv`);
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        addLog?.("CSV Downloaded", "success", "File download triggered");
+    };
+
     return (
         <div style={{
             position: 'absolute',
@@ -68,7 +88,13 @@ export function AnalyticsControls({ activeBoundaryId }: AnalyticsControlsProps) 
             {/* STEP 2: RESULTS PREVIEW */}
             {result && (
                 <div style={{ marginBottom: '20px' }}>
-                    <div style={{ fontSize: '10px', color: '#888', marginBottom: '4px' }}>STEP 2: CSV PREVIEW</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <div style={{ fontSize: '10px', color: '#888' }}>STEP 2: CSV PREVIEW</div>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                            <button onClick={copyToClipboard} style={{ fontSize: '9px', padding: '2px 6px', background: '#eee', border: '1px solid #ccc', borderRadius: '2px', cursor: 'pointer' }}>COPY</button>
+                            <button onClick={downloadCSV} style={{ fontSize: '9px', padding: '2px 6px', background: '#eee', border: '1px solid #ccc', borderRadius: '2px', cursor: 'pointer' }}>DOWNLOAD</button>
+                        </div>
+                    </div>
                     <div style={{
                         background: '#1e293b',
                         color: '#34d399',
@@ -91,7 +117,7 @@ export function AnalyticsControls({ activeBoundaryId }: AnalyticsControlsProps) 
                     <div style={{ fontSize: '10px', color: '#888', marginBottom: '8px' }}>STEP 3: PLATFORM SYNC</div>
 
                     <PlatformCredentials platform="Meta" onSave={() => addLog?.("Meta Key Updated", "success")} />
-                    <PlatformCredentials platform="Google" onSave={() => addLog?.("Google Key Updated", "success")} />
+                    <PlatformCredentials platform="Google" disabled={true} onSave={() => { }} />
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px' }}>
                         <button
@@ -112,19 +138,19 @@ export function AnalyticsControls({ activeBoundaryId }: AnalyticsControlsProps) 
                         </button>
                         <button
                             onClick={() => handleUpload('Google')}
-                            disabled={isUploading}
+                            disabled={true}
                             style={{
                                 padding: '10px',
-                                background: '#4285F4',
+                                background: '#ccc',
                                 color: 'white',
                                 border: 'none',
                                 borderRadius: '4px',
                                 fontSize: '11px',
                                 fontWeight: 'bold',
-                                cursor: isUploading ? 'not-allowed' : 'pointer'
+                                cursor: 'not-allowed'
                             }}
                         >
-                            UPLOAD TO GOOGLE
+                            GOOGLE (WIP)
                         </button>
                     </div>
                 </div>
