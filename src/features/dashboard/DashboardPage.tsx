@@ -1,10 +1,10 @@
-import MapPage from "./map/MapPage";
+import BoundaryOverlay from "../boundaries/BoundaryOverlay";
 import { Layout } from "@/components/layout";
 
 export default function DashboardPage() {
     return (
         <Layout>
-            <MapPage />
+            <BoundaryOverlay />
         </Layout>
     );
 }

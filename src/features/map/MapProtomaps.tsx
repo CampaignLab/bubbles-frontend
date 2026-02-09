@@ -91,14 +91,24 @@ export function ProtomapsMap({ geojson, onViewportChange, onTileEvent, mapConfig
                     return;
                 }
 
-                const coordinates = geojson.features[0].geometry.coordinates[0][0];
-                const bounds = coordinates.reduce((bounds: any, coord: any) => {
-                    return bounds.extend(coord);
-                }, new maplibregl.LngLatBounds(coordinates[0], coordinates[0]));
+                const geometry = memoizedGeojson.features[0]?.geometry;
+                if (!geometry) return;
 
-                if (bounds) {
+                let points = [];
+                if (geometry.type === 'Polygon') {
+                    points = geometry.coordinates[0];
+                } else if (geometry.type === 'MultiPolygon') {
+                    points = geometry.coordinates[0][0];
+                }
+
+                if (points && points.length > 0) {
+                    const bounds = points.reduce((acc: any, coord: any) => {
+                        return acc.extend(coord);
+                    }, new maplibregl.LngLatBounds(points[0], points[0]));
+
                     map.fitBounds(bounds, {
-                        padding: 20
+                        padding: 50,
+                        duration: 1000
                     });
                 }
             } catch (error) {

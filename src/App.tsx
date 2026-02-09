@@ -1,4 +1,4 @@
-import DashboardPage from './features/DashboardPage';
+import DashboardPage from './features/dashboard/DashboardPage';
 
 function App() {
   return (
