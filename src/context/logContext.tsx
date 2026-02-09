@@ -1,6 +1,4 @@
 
-"use client";
-
 import React, { createContext, useState, useContext, useCallback, useMemo } from 'react';
 import { debounce } from "lodash";
 
@@ -27,8 +25,6 @@ export function LogProvider({ children }: { children: React.ReactNode }) {
     const [isOpen, setIsOpen] = useState(false);
 
     const addLog = useCallback((title: string, type: LogEntry['type'], data?: any) => {
-        const formattedData = data ? JSON.stringify(data, null, 2) : undefined;
-
         setLogs(prevLogs => {
             const lastLog = prevLogs[0];
             if (lastLog && lastLog.title === title && lastLog.type === type) {
@@ -36,7 +32,7 @@ export function LogProvider({ children }: { children: React.ReactNode }) {
                     ...lastLog,
                     timestamp: new Date(),
                     count: lastLog.count + 1,
-                    data: [formattedData, ...lastLog.data] // Prepend new data
+                    data: [data, ...lastLog.data] // Prepend new data
                 };
                 // Capping the stored data payloads to prevent memory issues with very frequent events
                 if (updatedLog.data.length > 50) {
@@ -48,7 +44,7 @@ export function LogProvider({ children }: { children: React.ReactNode }) {
                     timestamp: new Date(),
                     title,
                     type,
-                    data: [formattedData],
+                    data: [data],
                     count: 1,
                 };
                 return [newLog, ...prevLogs];
@@ -64,13 +60,13 @@ export function LogProvider({ children }: { children: React.ReactNode }) {
         setIsOpen(prev => !prev);
     };
 
-    const value = {
+    const value = useMemo(() => ({
         logs,
         isOpen,
         addLog,
         toggleLogs,
         debouncedLogViewport
-    };
+    }), [logs, isOpen, addLog, debouncedLogViewport]);
 
     return (
         <LogContext.Provider value={value}>

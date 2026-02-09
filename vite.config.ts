@@ -9,6 +9,8 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  //TODO fix env prefix
+  //envPrefix: "BUBBLES_",
   plugins: [
     react({
       babel: {

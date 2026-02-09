@@ -1,50 +1,34 @@
+import React, { useEffect } from "react";
+import { MapDisplay } from "./MapDisplay";
+import { defaultMapConfig } from "@/lib/config";
+import { LogConsole } from "@/components/LogConsole";
+import { useLogs } from "@/context/logContext";
 
-import React, { useState, useEffect, Suspense } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { MapDisplay } from "@/features/map/MapDisplay";
-import type { MapConfig } from "@/lib/config";
-import { mapConfigRegistry } from "@/lib/config";
+export default function MapPage() {
+    const logContext = useLogs();
+    const { addLog } = logContext || {};
 
-function PreviewMapPageContents() {
-    const searchParams = new URLSearchParams(window.location.search);
-    const [activeConfig, setActiveConfig] = useState<MapConfig | null>(null);
+    const hasLogRun = React.useRef(false);
 
     useEffect(() => {
-        const configStr = searchParams.get('config');
-        let configToLoad: MapConfig | null = null;
+        if (hasLogRun.current) return;
 
-        if (configStr) {
-            try {
-                configToLoad = JSON.parse(decodeURIComponent(configStr));
-            } catch (e) {
-                console.error("Failed to parse config from URL, loading default.", e);
-                configToLoad = mapConfigRegistry.getDefault();
-            }
+        if (import.meta.env.VITE_PROTOMAPS_API_KEY) {
+            addLog?.("Environment Loaded", "success", "Protomaps API key found");
         } else {
-            configToLoad = mapConfigRegistry.getDefault();
+            addLog?.("Environment Warning", "warning", "Protomaps API key missing");
         }
-        setActiveConfig(configToLoad);
-    }, [searchParams]);
 
-    if (!activeConfig) {
-        return <Skeleton className="w-full h-screen" />;
-    }
+        hasLogRun.current = true;
+    }, [addLog]);
 
     return (
-        <div style={{ height: "100vh", width: "100%" }}>
-            <MapDisplay
-                key={activeConfig.id}
-                mapConfig={activeConfig}
-                geojson={null}
-            />
+        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+            {/* The Map Layer */}
+            <MapDisplay mapConfig={defaultMapConfig} />
+
+            {/* The Floating Log Console (Dev Only) */}
+            {import.meta.env.DEV && <LogConsole />}
         </div>
     );
-}
-
-export default function PreviewMapPage() {
-    return (
-        <Suspense fallback={<Skeleton className="w-full h-screen" />}>
-            <PreviewMapPageContents />
-        </Suspense>
-    )
 }

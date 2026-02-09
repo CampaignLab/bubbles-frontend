@@ -20,7 +20,7 @@ const polygonLayer: LayerProps = {
 
 interface ProtomapsMapProps {
     geojson?: any;
-    onViewportChange?: (viewport: { latitude: number, longitude: number, zoom: number }) => void;
+    onViewportChange?: (viewport: { latitude: number, longitude: number, zoom: number, bearing: number, pitch: number }) => void;
     onTileEvent?: (eventName: string, data: any) => void;
     mapConfig: MapConfig | null;
 }
@@ -114,10 +114,21 @@ export function ProtomapsMap({ geojson, onViewportChange, onTileEvent, mapConfig
 
     if (!effectiveTileUrl) {
         return (
-            <div className="p-8 border-2 border-dashed border-red-500 bg-red-50/10 text-red-500 rounded-lg">
-                <h2 className="text-xl font-bold">API Key Required</h2>
-                <p>The "{mapConfig?.baseMapKey}" map requires an API key to load.</p>
-                <p className="text-sm mt-2 opacity-70">Check your configuration in src/lib/config.ts</p>
+            <div style={{
+                padding: '2rem',
+                border: '2px dashed #ff4444',
+                backgroundColor: 'rgba(255, 68, 68, 0.05)',
+                color: '#ff4444',
+                borderRadius: '8px',
+                textAlign: 'center',
+                margin: '20px',
+                fontFamily: 'sans-serif'
+            }}>
+                <h2 style={{ margin: '0 0 10px 0', fontSize: '1.2rem' }}>API Key Required</h2>
+                <p style={{ margin: '0 0 10px 0' }}>The "{mapConfig?.baseMapKey}" map requires an API key to load.</p>
+                <div style={{ fontSize: '0.8rem', opacity: 0.8 }}>
+                    Check your <code>VITE_PROTOMAPS_API_KEY</code> in <code>.env.local</code>
+                </div>
             </div>
         );
     }

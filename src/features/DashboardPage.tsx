@@ -1,7 +1,10 @@
-import { Dashboard } from "@/components/dashboard";
+import MapPage from "./map/MapPage";
+import { Layout } from "@/components/layout";
 
-export default function Home() {
+export default function DashboardPage() {
     return (
-        <Dashboard />
+        <Layout>
+            <MapPage />
+        </Layout>
     );
 }
