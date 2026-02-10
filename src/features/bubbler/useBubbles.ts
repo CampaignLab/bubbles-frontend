@@ -20,6 +20,8 @@ export function useBubbles() {
     // Tracking for race conditions
     const lastRequestRef = useRef<string | null>(null);
 
+    const [interactionMode, setInteractionMode] = useState<'add' | 'delete'>('add');
+
     // Manual Drawing Settings
     const [drawSettings, setDrawSettings] = useState<{
         radiusKm: number;
@@ -30,6 +32,10 @@ export function useBubbles() {
         type: 'inclusion',
         units: 'km'
     });
+
+    const toggleInteractionMode = useCallback(() => {
+        setInteractionMode(prev => prev === 'add' ? 'delete' : 'add');
+    }, []);
 
     const refreshSavedList = useCallback(async () => {
         const list = await boundaryService.listSavedBubbles();
@@ -59,6 +65,11 @@ export function useBubbles() {
         setBubbles(prev => [...prev, newBubble]);
         addLog?.("Bubble Added", "info", `${drawSettings.type} bubble (${drawSettings.radiusKm}km) created.`);
     }, [drawSettings, addLog, activeSessionId]);
+
+    const removeBubble = useCallback((id: string) => {
+        setBubbles(prev => prev.filter(b => b.id !== id));
+        addLog?.("Bubble Removed", "info", "Bubble deleted from session.");
+    }, [addLog]);
 
     const loadBubble = useCallback(async (id: string) => {
         // Prevent redundant loads if already active or being fetched
@@ -154,6 +165,10 @@ export function useBubbles() {
         activeSessionName,
         setDrawSettings,
         addBubble,
+        removeBubble,
+        interactionMode,
+        setInteractionMode,
+        toggleInteractionMode,
         saveBubbles,
         loadBubble,
         deleteSession,

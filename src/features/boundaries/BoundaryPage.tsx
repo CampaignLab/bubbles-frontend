@@ -5,7 +5,6 @@ import { useBoundaries } from "./useBoundaries";
 import { LogConsole } from "@/components/LogConsole";
 import { AnalyticsControls } from "../analytics/AnalyticsControls";
 import { useBubbles } from "../bubbler/useBubbles";
-import { BubbleDrawControls } from "../bubbler/BubbleDrawControls";
 import { BubblerLayer } from "../bubbler/BubblerLayer";
 import { BoundaryLayer } from "./BoundaryLayer";
 import type { MapRef } from "react-map-gl/maplibre";
@@ -22,6 +21,7 @@ export default function BoundaryPage() {
     const [selectionMode, setSelectionMode] = useState<'Administrative' | 'Bubbles'>('Administrative');
     const [boundaryType, setBoundaryType] = useState<'ward' | 'constituency'>('constituency');
     const [isCtrlHeld, setIsCtrlHeld] = useState(false);
+    const [hoveredBubbleId, setHoveredBubbleId] = useState<string | null>(null);
 
     const {
         selectedId,
@@ -35,10 +35,14 @@ export default function BoundaryPage() {
         bubbles,
         availableBubbles,
         drawSettings,
+        interactionMode,
+        setInteractionMode,
+        toggleInteractionMode,
         activeSessionId,
         activeSessionName,
         setDrawSettings,
         addBubble,
+        removeBubble,
         generateAudienceCSV,
         saveBubbles,
         loadBubble,
@@ -46,6 +50,7 @@ export default function BoundaryPage() {
     } = useBubbles();
 
     const lastZoomId = useRef<string | null>(null);
+    const skipNextZoom = useRef(false);
 
     // Block browser zoom and handle radius scaling
     useEffect(() => {
@@ -70,7 +75,11 @@ export default function BoundaryPage() {
             if (e.key === 'Control') setIsCtrlHeld(true);
         };
         const handleKeyUp = (e: KeyboardEvent) => {
-            if (e.key === 'Control') setIsCtrlHeld(false);
+            if (e.key === 'Control') {
+                setIsCtrlHeld(false);
+                setInteractionMode('add');
+                setHoveredBubbleId(null);
+            }
         };
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('keyup', handleKeyUp);
@@ -78,7 +87,7 @@ export default function BoundaryPage() {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
-    }, []);
+    }, [setInteractionMode]);
 
     // fitBounds logic: Consolidated and Guarded
     useEffect(() => {
@@ -94,6 +103,13 @@ export default function BoundaryPage() {
             : (bubbles.length > 0 && activeSessionId === currentId);
 
         if (!isDataReady || lastZoomId.current === currentId) return;
+
+        // Visual check: Was this zoom triggered by a manual click?
+        if (skipNextZoom.current) {
+            lastZoomId.current = currentId;
+            skipNextZoom.current = false;
+            return;
+        }
 
         let bbox: number[] | null = null;
         if (selectionMode === 'Administrative' && geojson) {
@@ -140,18 +156,54 @@ export default function BoundaryPage() {
     };
 
     const handleMapClick = (lng: number, lat: number) => {
-        if (selectionMode === 'Bubbles' && isCtrlHeld) {
-            addBubble(lng, lat);
+        if (selectionMode === 'Bubbles') {
+            // Only allow interaction if CTRL is held
+            if (!isCtrlHeld) return;
+
+            if (interactionMode === 'delete' && hoveredBubbleId) {
+                removeBubble(hoveredBubbleId);
+                setHoveredBubbleId(null);
+            } else if (interactionMode === 'add') {
+                // Prevent auto-zoom when manually starting a new session
+                if (!activeSessionId) {
+                    skipNextZoom.current = true;
+                }
+                addBubble(lng, lat);
+            }
         }
     };
 
-    const handleMouseMove = useCallback((e: any) => {
+    const handleContextMenu = useCallback((e: any) => {
         if (selectionMode === 'Bubbles' && isCtrlHeld) {
-            setPreviewPoint({ lng: e.lngLat.lng, lat: e.lngLat.lat });
-        } else {
-            setPreviewPoint(null);
+            e.preventDefault();
+            toggleInteractionMode();
         }
-    }, [selectionMode, isCtrlHeld]);
+    }, [selectionMode, isCtrlHeld, toggleInteractionMode]);
+
+    const handleMouseMove = useCallback((e: any) => {
+        if (selectionMode !== 'Bubbles' || !isCtrlHeld) {
+            setPreviewPoint(null);
+            setHoveredBubbleId(null);
+            return;
+        }
+
+        if (interactionMode === 'delete') {
+            setPreviewPoint(null);
+            // Hit-test for bubbles
+            const map = mapRef.current?.getMap();
+            if (map) {
+                const features = map.queryRenderedFeatures(e.point, { layers: ['bubble-fill'] });
+                if (features.length > 0) {
+                    setHoveredBubbleId(features[0].properties?.id || null);
+                } else {
+                    setHoveredBubbleId(null);
+                }
+            }
+        } else if (interactionMode === 'add') {
+            setHoveredBubbleId(null);
+            setPreviewPoint({ lng: e.lngLat.lng, lat: e.lngLat.lat });
+        }
+    }, [selectionMode, interactionMode, isCtrlHeld]);
 
     return (
         <div style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -173,6 +225,7 @@ export default function BoundaryPage() {
                         ref={mapRef}
                         onMapClick={handleMapClick}
                         onMouseMove={handleMouseMove}
+                        onContextMenu={handleContextMenu}
                         isCtrlHeld={isCtrlHeld}
                         dragPan={isCtrlHeld ? { mouseButton: 'right' } : true}
                         scrollZoom={isCtrlHeld ? false : true}
@@ -182,22 +235,14 @@ export default function BoundaryPage() {
                             bubbles={selectionMode === 'Bubbles' ? bubbles : []}
                             drawSettings={drawSettings}
                             previewPoint={previewPoint}
-                            showPreview={selectionMode === 'Bubbles' && isCtrlHeld}
+                            showPreview={selectionMode === 'Bubbles' && isCtrlHeld && interactionMode === 'add'}
+                            hoveredBubbleId={hoveredBubbleId}
                         />
                     </MapView>
                 </div>
             </Suspense>
 
-            {/* Manual Drawing Controls */}
-            <BubbleDrawControls
-                radiusKm={drawSettings.radiusKm}
-                setRadiusKm={(r: number) => setDrawSettings(prev => ({ ...prev, radiusKm: r }))}
-                type={drawSettings.type}
-                setType={(t: 'inclusion' | 'exclusion') => setDrawSettings(prev => ({ ...prev, type: t }))}
-                visible={selectionMode === 'Bubbles' && isCtrlHeld}
-            />
-
-            {/* Left Side Selection */}
+            {/* Top-Level Selection & Drawing Controls */}
             <BoundaryControl
                 selectedBoundaryId={selectedId}
                 activeSessionId={activeSessionId}
@@ -211,6 +256,11 @@ export default function BoundaryPage() {
                 onExportCSV={generateAudienceCSV}
                 onSaveBubbles={saveBubbles}
                 onDeleteSession={deleteSession}
+                isCtrlHeld={isCtrlHeld}
+                interactionMode={interactionMode}
+                drawSettings={drawSettings}
+                onRadiusChange={(r: number) => setDrawSettings(prev => ({ ...prev, radiusKm: r }))}
+                onDrawTypeChange={(t: 'inclusion' | 'exclusion') => setDrawSettings(prev => ({ ...prev, type: t }))}
             />
 
             {/* Right Side Analytics */}

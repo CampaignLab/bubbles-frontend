@@ -13,6 +13,7 @@ interface ProtomapsMapProps {
     onTileEvent?: (eventName: string, data: any) => void;
     onMapClick?: (lng: number, lat: number) => void;
     onMouseMove?: (e: any) => void;
+    onContextMenu?: (e: any) => void;
     mapConfig: MapConfig | null;
     isCtrlHeld?: boolean;
     dragPan?: boolean | any;
@@ -25,6 +26,7 @@ export const ProtomapsMap = forwardRef<MapRef, ProtomapsMapProps>(({
     onTileEvent,
     onMapClick,
     onMouseMove,
+    onContextMenu,
     mapConfig,
     isCtrlHeld = false,
     dragPan = true,
@@ -120,6 +122,7 @@ export const ProtomapsMap = forwardRef<MapRef, ProtomapsMapProps>(({
                 style={{ width: "100%", height: "100%" }}
                 onMove={handleMove}
                 onMouseMove={onMouseMove}
+                onContextMenu={onContextMenu}
                 onData={onData}
                 onLoad={handleLoad}
                 onIdle={handleIdle}
@@ -130,6 +133,9 @@ export const ProtomapsMap = forwardRef<MapRef, ProtomapsMapProps>(({
                 cursor={cursor}
                 dragPan={dragPan}
                 scrollZoom={scrollZoom}
+                dragRotate={false}
+                touchPitch={false}
+                touchZoomRotate={false}
             >
                 {styleLoaded && children}
             </Map>

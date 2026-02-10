@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { BoundaryItem } from './BoundaryItem';
 import { BubblerItem } from '../bubbler/BubblerItem';
+import { BubbleDrawControls } from '../bubbler/BubbleDrawControls';
 import type { Boundary } from '@/lib/data';
 
 interface BoundaryControlProps {
@@ -16,6 +17,12 @@ interface BoundaryControlProps {
     onExportCSV: () => void;
     onSaveBubbles: (name: string) => void;
     onDeleteSession: (id: string) => void;
+    // Drawing integration
+    isCtrlHeld: boolean;
+    interactionMode: 'add' | 'delete';
+    drawSettings: { radiusKm: number, type: 'inclusion' | 'exclusion' };
+    onRadiusChange: (v: number) => void;
+    onDrawTypeChange: (v: 'inclusion' | 'exclusion') => void;
 }
 
 export function BoundaryControl({
@@ -30,7 +37,12 @@ export function BoundaryControl({
     onModeChange,
     onExportCSV,
     onSaveBubbles,
-    onDeleteSession
+    onDeleteSession,
+    isCtrlHeld,
+    interactionMode,
+    drawSettings,
+    onRadiusChange,
+    onDrawTypeChange
 }: BoundaryControlProps) {
     const selectedBoundary = allBoundaries.find(b => b.id === (selectionMode === 'Administrative' ? selectedBoundaryId : activeSessionId));
 
@@ -141,20 +153,76 @@ export function BoundaryControl({
                 </div>
             )}
 
+            {/* Row 2: Drawing Controls (Bubbles Mode only) */}
             {selectionMode === 'Bubbles' && (
                 <div style={{ marginBottom: '20px' }}>
-                    <div style={{
-                        padding: '12px',
-                        background: '#fef9c3',
-                        borderRadius: '8px',
-                        border: '1px solid #fde047',
-                        fontSize: '11px',
-                        color: '#854d0e',
-                        lineHeight: '1.5',
-                        marginBottom: '16px'
-                    }}>
-                        <strong>Bubble Mode:</strong> <strong>CTRL + CLICK</strong> on map to place inclusion points (Min 1km radius).
-                    </div>
+                    {isCtrlHeld ? (
+                        <>
+                            <div style={{
+                                padding: '16px',
+                                background: '#f8fafc',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '12px',
+                                marginBottom: '8px'
+                            }}>
+                                {interactionMode === 'add' ? (
+                                    <>
+                                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#1e293b', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                            Draw Settings
+                                        </div>
+                                        <BubbleDrawControls
+                                            radiusKm={drawSettings.radiusKm}
+                                            setRadiusKm={onRadiusChange}
+                                            type={drawSettings.type}
+                                            setType={onDrawTypeChange}
+                                            visible={true}
+                                        />
+                                    </>
+                                ) : (
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#b91c1c', textTransform: 'uppercase', marginBottom: '4px' }}>
+                                            Deletion Mode
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: '#7f1d1d' }}>
+                                            Select bubble to destroy
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Separate spans-the-length notification box */}
+                            <div style={{
+                                padding: '10px 12px',
+                                background: interactionMode === 'add' ? '#fee2e2' : '#fef9c3',
+                                borderRadius: '8px',
+                                border: interactionMode === 'add' ? '1px solid #fecaca' : '1px solid #fde047',
+                                fontSize: '10px',
+                                color: interactionMode === 'add' ? '#b91c1c' : '#854d0e',
+                                fontWeight: 600,
+                                textAlign: 'center'
+                            }}>
+                                {interactionMode === 'add'
+                                    ? 'RIGHT CLICK to toggle deletion mode'
+                                    : 'RIGHT CLICK to return to placement mode'}
+                            </div>
+                        </>
+                    ) : (
+                        <div style={{
+                            padding: '12px',
+                            background: '#fef9c3',
+                            borderRadius: '8px',
+                            border: '1px solid #fde047',
+                            fontSize: '11px',
+                            color: '#854d0e',
+                            lineHeight: '1.5',
+                        }}>
+                            <strong>Edit Bubble Mode:</strong>
+                            <br />
+                            <strong>CTRL </strong> to enter <strong>Placement Mode</strong>
+                            <br />
+                            <strong>CTRL + CLICK</strong> on map to place bubbles (Min 1km radius).
+                        </div>
+                    )}
                 </div>
             )}
 

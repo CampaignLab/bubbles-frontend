@@ -8,6 +8,7 @@ interface MapViewProps {
     config?: MapConfig;
     onMapClick?: (lng: number, lat: number) => void;
     onMouseMove?: (e: any) => void;
+    onContextMenu?: (e: any) => void;
     className?: string;
     children?: React.ReactNode;
     isCtrlHeld?: boolean;
@@ -23,6 +24,7 @@ const MapView = forwardRef<MapRef, MapViewProps>(({
     config = defaultMapConfig,
     onMapClick,
     onMouseMove,
+    onContextMenu,
     className,
     children,
     isCtrlHeld,
@@ -54,6 +56,7 @@ const MapView = forwardRef<MapRef, MapViewProps>(({
                 onTileEvent={handleTileEvent}
                 onMapClick={onMapClick}
                 onMouseMove={onMouseMove}
+                onContextMenu={onContextMenu}
                 isCtrlHeld={isCtrlHeld}
                 dragPan={dragPan}
                 scrollZoom={scrollZoom}

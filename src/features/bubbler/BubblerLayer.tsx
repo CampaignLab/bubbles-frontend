@@ -26,9 +26,10 @@ interface BubblerLayerProps {
     drawSettings?: { radiusKm: number, type: 'inclusion' | 'exclusion' };
     previewPoint?: { lng: number, lat: number } | null;
     showPreview?: boolean;
+    hoveredBubbleId?: string | null;
 }
 
-export function BubblerLayer({ bubbles, drawSettings, previewPoint, showPreview }: BubblerLayerProps) {
+export function BubblerLayer({ bubbles, drawSettings, previewPoint, showPreview, hoveredBubbleId }: BubblerLayerProps) {
     const bubblesGeojson = useMemo(() => {
         if (!bubbles.length) return null;
         return {
@@ -59,6 +60,25 @@ export function BubblerLayer({ bubbles, drawSettings, previewPoint, showPreview 
                 <Source id="bubble-data" type="geojson" data={bubblesGeojson}>
                     <Layer {...bubbleFillLayer} />
                     <Layer {...bubbleOutlineLayer} />
+
+                    {/* Highlight Layer for deletion (translucent fill) */}
+                    <Layer
+                        id="bubble-highlight-fill"
+                        type="fill"
+                        paint={{
+                            "fill-color": "#facc15",
+                            "fill-opacity": ["case", ["==", ["get", "id"], hoveredBubbleId || ""], 0.3, 0]
+                        }}
+                    />
+                    <Layer
+                        id="bubble-highlight-outline"
+                        type="line"
+                        paint={{
+                            "line-color": "#facc15",
+                            "line-width": 3,
+                            "line-opacity": ["case", ["==", ["get", "id"], hoveredBubbleId || ""], 1, 0]
+                        }}
+                    />
                 </Source>
             )}
 
