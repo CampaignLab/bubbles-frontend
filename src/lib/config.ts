@@ -66,6 +66,7 @@ export const defaultMapConfig: MapConfig = {
     startLat: 54.5,
     startLng: -1.0,
     startZoom: 6.0, // More zoomed in as requested
+    maxZoom: 13,
     // Wider bounds to prevent "blank map" glitches on load
     maxBounds: [[-12.0, 47.0], [8.0, 63.0]],
 };
