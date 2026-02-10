@@ -14,11 +14,19 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 )
 
-// Register Service Worker for aggressive map tile caching
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
+// Register Service Worker for aggressive tile caching
+// Note: Service Workers require HTTPS or localhost.
+const swPath = `${import.meta.env.BASE_URL}sw.js`;
+
+if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/bubbles-frontend/sw.js')
-      .then(() => console.log('Tile Cache SW Registered'))
-      .catch(err => console.log('Tile Cache SW Failed', err));
+    console.log('🛠️ [Main] Attempting SW registration at:', swPath);
+    navigator.serviceWorker.register(swPath)
+      .then((reg) => {
+        console.log('🚀 [SW] Registered!', reg.scope);
+      })
+      .catch(err => {
+        console.error('❌ [SW] Registration Failed:', err);
+      });
   });
 }

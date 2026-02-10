@@ -196,7 +196,9 @@ export function BoundaryControl({
                         border: '1px dashed #cbd5e1',
                         borderRadius: '4px'
                     }}>
-                        No {selectionMode === 'Bubbles' ? 'sessions' : boundaryType + 's'} found.
+                        {selectionMode === 'Bubbles'
+                            ? 'No previous bubble sessions found.'
+                            : `No boundary data found for type "${boundaryType}". Check back soon!`}
                     </div>
                 )}
             </div>

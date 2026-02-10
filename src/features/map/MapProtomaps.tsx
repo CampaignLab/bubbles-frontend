@@ -160,8 +160,9 @@ export function ProtomapsMap({ geojson, bubbles = [], onViewportChange, onTileEv
 
                 if (hasPoints) {
                     map.fitBounds(bounds, {
-                        padding: 100,
-                        duration: 1500
+                        padding: 50, // Reduced padding to make the boundary larger on screen
+                        duration: 500,
+                        maxZoom: 13 // Increased from 11 to 13 to allow closer inspection
                     });
                 }
             } catch (error) {
