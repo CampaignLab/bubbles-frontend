@@ -41,7 +41,7 @@ export const boundaryService = {
      */
     async getBoundaryGeoJSON(type: 'ward' | 'constituency', id: string): Promise<GeoJSON.FeatureCollection> {
         // Mapping types to backend/mock paths
-        const path = type === 'ward' ? `ward/${id}.geojson` : `const/${id}.geojson`;
+        const path = type === 'ward' ? `ward/${encodeURIComponent(id)}.geojson` : `const/${encodeURIComponent(id)}.geojson`;
         const response = await fetch(`${API_BASE}/${path}`);
 
         if (!response.ok) {
@@ -55,7 +55,7 @@ export const boundaryService = {
      * Saves a custom bubble locally.
      */
     async saveBubble(id: string, geojson: any): Promise<void> {
-        const response = await fetch(`${API_BASE}/bubbles/${id}.json`, {
+        const response = await fetch(`${API_BASE}/bubbles/${encodeURIComponent(id)}.json`, {
             method: 'POST',
             body: JSON.stringify(geojson),
             headers: { 'Content-Type': 'application/json' }
@@ -71,8 +71,21 @@ export const boundaryService = {
      * For now, we'll assume the frontend knows the bubble IDs or we use a manifest file.
      */
     async getBubble(id: string): Promise<any> {
-        const response = await fetch(`${API_BASE}/bubbles/${id}.json`);
+        const response = await fetch(`${API_BASE}/bubbles/${encodeURIComponent(id)}.json`);
         if (!response.ok) throw new Error("Bubble not found");
         return await response.json();
+    },
+
+    /**
+     * Deletes a saved bubble session.
+     */
+    async deleteBubble(id: string): Promise<void> {
+        const response = await fetch(`${API_BASE}/bubbles/${encodeURIComponent(id)}.json`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to delete bubble: ${response.statusText}`);
+        }
     }
 };

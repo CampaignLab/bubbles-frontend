@@ -33,11 +33,14 @@ export default function BoundaryPage() {
         bubbles,
         availableBubbles,
         drawSettings,
+        activeSessionId,
+        activeSessionName,
         setDrawSettings,
         addBubble,
         generateAudienceCSV,
         saveBubbles,
-        loadBubble
+        loadBubble,
+        deleteSession
     } = useBubbles();
 
     // Keyboard listener for Ctrl key
@@ -98,6 +101,13 @@ export default function BoundaryPage() {
 
     // The list to show in the sidebar depends on the mode
     const activeList = selectionMode === 'Administrative' ? adminBoundaries : availableBubbles;
+
+    // Load bubbles when administrative boundary is selected
+    useEffect(() => {
+        if (selectionMode === 'Administrative' && selectedId) {
+            loadBubble(selectedId);
+        }
+    }, [selectedId, selectionMode]);
 
     const handleSelect = (id: string | null) => {
         if (selectionMode === 'Administrative') {
@@ -166,6 +176,8 @@ export default function BoundaryPage() {
             {/* Feature 1: Left Side Selection */}
             <BoundaryControl
                 selectedBoundaryId={selectedId}
+                activeSessionId={activeSessionId}
+                activeSessionName={activeSessionName}
                 onSelect={handleSelect}
                 boundaryType={boundaryType}
                 onTypeChange={setBoundaryType}
@@ -173,13 +185,10 @@ export default function BoundaryPage() {
                 selectionMode={selectionMode}
                 onModeChange={(mode) => {
                     setSelectionMode(mode);
-                    setSelectedId(null);
                 }}
                 onExportCSV={generateAudienceCSV}
-                onSaveBubbles={() => {
-                    const name = prompt("Session Name:", `session-${Date.now()}`);
-                    if (name) saveBubbles(name);
-                }}
+                onSaveBubbles={saveBubbles}
+                onDeleteSession={deleteSession}
             />
 
             {/* Feature 2: Right Side Analytics */}

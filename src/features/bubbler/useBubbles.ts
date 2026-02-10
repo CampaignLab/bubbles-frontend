@@ -14,6 +14,8 @@ export function useBubbles() {
     const { addLog } = useLogs() || {};
     const [bubbles, setBubbles] = useState<BubblePoint[]>([]);
     const [availableBubbles, setAvailableBubbles] = useState<any[]>([]);
+    const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+    const [activeSessionName, setActiveSessionName] = useState<string | null>(null);
 
     // Manual Drawing Settings
     const [drawSettings, setDrawSettings] = useState<{
@@ -36,6 +38,14 @@ export function useBubbles() {
     }, [refreshSavedList]);
 
     const addBubble = useCallback((lng: number, lat: number) => {
+        // Auto-create session if none active
+        if (!activeSessionId) {
+            const newId = `Session ${Date.now()}`;
+            setActiveSessionId(newId);
+            setActiveSessionName(newId);
+            addLog?.("New Session", "info", `Starting new session: ${newId}`);
+        }
+
         const id = `bubble-${Date.now()}`;
         const newBubble: BubblePoint = {
             id,
@@ -46,7 +56,7 @@ export function useBubbles() {
         };
         setBubbles(prev => [...prev, newBubble]);
         addLog?.("Bubble Added", "info", `${drawSettings.type} bubble (${drawSettings.radiusKm}km) created.`);
-    }, [drawSettings, addLog]);
+    }, [drawSettings, addLog, activeSessionId]);
 
     const updateBubble = useCallback((id: string, updates: Partial<BubblePoint>) => {
         setBubbles(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
@@ -62,6 +72,8 @@ export function useBubbles() {
             if (data.features) {
                 const points = data.features.map((f: any) => f.properties as BubblePoint);
                 setBubbles(points);
+                setActiveSessionId(id);
+                setActiveSessionName(id);
                 addLog?.("Session Loaded", "success", `Loaded ${points.length} points from ${id}`);
             }
         } catch (err: any) {
@@ -83,10 +95,27 @@ export function useBubbles() {
                 }))
             };
             await boundaryService.saveBubble(name, geojson);
+            setActiveSessionId(name);
+            setActiveSessionName(name);
             addLog?.("Bubbles Saved", "success", `Saved ${bubbles.length} bubbles as ${name}`);
             refreshSavedList();
         } catch (err: any) {
             addLog?.("Save Error", "error", err.message);
+        }
+    };
+
+    const deleteSession = async (id: string) => {
+        try {
+            await boundaryService.deleteBubble(id);
+            if (activeSessionId === id) {
+                setBubbles([]);
+                setActiveSessionId(null);
+                setActiveSessionName(null);
+            }
+            addLog?.("Session Deleted", "info", `Removed session ${id}`);
+            refreshSavedList();
+        } catch (err: any) {
+            addLog?.("Delete Error", "error", err.message);
         }
     };
 
@@ -106,12 +135,15 @@ export function useBubbles() {
         bubbles,
         availableBubbles,
         drawSettings,
+        activeSessionId,
+        activeSessionName,
         setDrawSettings,
         addBubble,
         updateBubble,
         removeBubble,
         saveBubbles,
         loadBubble,
+        deleteSession,
         generateAudienceCSV
     };
 }
