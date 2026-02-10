@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && copy dist\\index.html dist\\404.html",
     "lint": "eslint .",
     "preview": "vite preview",
+    "stage": "npm run build && vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"
   },
