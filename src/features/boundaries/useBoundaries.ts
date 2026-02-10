@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { boundaries } from "@/lib/data";
 import { useLogs } from "@/context/logContext";
+import { boundaryService } from "@/services/boundaryService";
 
 /**
  * Domain-specific hook for managing boundary data and selection.
@@ -22,11 +23,8 @@ export function useBoundaries() {
         setLoading(true);
         addLog?.("Fetching Boundary", "info", `Loading data for ${selectedId}`);
 
-        fetch(`/data/${selectedId}.json`)
-            .then(res => {
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                return res.json();
-            })
+        // Assuming 'ward' for the demo, but this can be dynamic later
+        boundaryService.getBoundaryGeoJSON('ward', selectedId)
             .then(data => {
                 setGeojson(data);
                 setLoading(false);
