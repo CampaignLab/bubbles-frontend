@@ -23,9 +23,14 @@ export default function BoundaryPage() {
     const activeList = selectionMode === 'Administrative' ? adminBoundaries : availableBubbles;
 
     const handleSelect = (id: string | null) => {
-        setSelectedId(id);
-        if (selectionMode === 'Bubbles' && id) {
-            loadBubble(id);
+        if (selectionMode === 'Administrative') {
+            setSelectedId(id);
+        } else {
+            // In Bubbles mode, the boundary selection doesn't apply to the map geometry
+            // but we might want to track which session is active
+            if (id) {
+                loadBubble(id);
+            }
         }
     };
 
@@ -37,7 +42,7 @@ export default function BoundaryPage() {
 
     return (
         <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-            {/* The individual, independent Map */}
+            {/* The MapView now receives both, but we control visibility via props or logic inside MapView if needed */}
             <Suspense fallback={
                 <div style={{
                     position: 'absolute',
@@ -52,8 +57,8 @@ export default function BoundaryPage() {
                 </div>
             }>
                 <MapView
-                    geojson={geojson}
-                    bubbles={bubbles}
+                    geojson={selectionMode === 'Administrative' ? geojson : null}
+                    bubbles={selectionMode === 'Bubbles' ? bubbles : []}
                     onMapClick={handleMapClick}
                 />
             </Suspense>

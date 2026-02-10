@@ -78,6 +78,8 @@ export function ProtomapsMap({ geojson, bubbles = [], onViewportChange, onTileEv
     }, [mapConfig]);
 
 
+    const [styleLoaded, setStyleLoaded] = useState(false);
+
     const memoizedGeojson = useMemo(() => {
         return geojson;
     }, [geojson]);
@@ -107,6 +109,11 @@ export function ProtomapsMap({ geojson, bubbles = [], onViewportChange, onTileEv
     const handleLoading = useCallback(() => setIsRendering(true), []);
     const handleIdle = useCallback(() => setIsRendering(false), []);
 
+    const handleLoad = useCallback(() => {
+        setStyleLoaded(true);
+        handleIdle();
+    }, [handleIdle]);
+
     const onData = useCallback((e: any) => {
         if (e.dataType === 'source') {
             handleLoading();
@@ -118,52 +125,45 @@ export function ProtomapsMap({ geojson, bubbles = [], onViewportChange, onTileEv
 
     useEffect(() => {
         const map = mapRef.current?.getMap();
-        if (!map || !map.isStyleLoaded()) return;
+        if (!map || !styleLoaded) return;
 
         if (memoizedGeojson) {
-            const source = map.getSource('boundary-data') as any;
-            if (source) {
-                source.setData(memoizedGeojson);
-            }
-
             try {
-                // This relies on maplibregl being available on the window, which react-map-gl should ensure.
-                // A null check is added for safety.
                 const maplibregl = (window as any).maplibregl;
-                if (!maplibregl) {
-                    console.error("maplibregl is not available on window object.");
-                    return;
-                }
+                if (!maplibregl) return;
 
-                const geometry = memoizedGeojson.features[0]?.geometry;
-                if (!geometry) return;
+                const features = memoizedGeojson.features || (memoizedGeojson.type === 'Feature' ? [memoizedGeojson] : []);
+                if (!features.length) return;
 
-                let points = [];
-                if (geometry.type === 'Polygon') {
-                    points = geometry.coordinates[0];
-                } else if (geometry.type === 'MultiPolygon') {
-                    points = geometry.coordinates[0][0];
-                }
+                const bounds = new maplibregl.LngLatBounds();
+                let hasPoints = false;
 
-                if (points && points.length > 0) {
-                    const bounds = points.reduce((acc: any, coord: any) => {
-                        return acc.extend(coord);
-                    }, new maplibregl.LngLatBounds(points[0], points[0]));
+                features.forEach((f: any) => {
+                    const geom = f.geometry;
+                    if (!geom) return;
 
+                    const processCoords = (coords: any) => {
+                        if (typeof coords[0] === 'number') {
+                            bounds.extend(coords as [number, number]);
+                            hasPoints = true;
+                        } else {
+                            coords.forEach(processCoords);
+                        }
+                    };
+                    processCoords(geom.coordinates);
+                });
+
+                if (hasPoints) {
                     map.fitBounds(bounds, {
-                        padding: 50,
-                        duration: 1000
+                        padding: 100,
+                        duration: 1500
                     });
                 }
             } catch (error) {
                 console.error("Error fitting bounds:", error);
-                // Fallback to center/zoom if bounds fitting fails
-                map.setCenter([mapConfig?.startLng || -2.5, mapConfig?.startLat || 54.5]);
-                map.setZoom(mapConfig?.startZoom || 5);
             }
-
         }
-    }, [memoizedGeojson, mapConfig]);
+    }, [memoizedGeojson, styleLoaded]);
 
 
     if (!effectiveTileUrl) {
@@ -195,7 +195,7 @@ export function ProtomapsMap({ geojson, bubbles = [], onViewportChange, onTileEv
                 style={{ width: "100%", height: "100%" }}
                 onMove={handleMove}
                 onData={onData}
-                onLoad={handleIdle}
+                onLoad={handleLoad}
                 onIdle={handleIdle}
                 onClick={handleClick}
                 minZoom={mapConfig?.minZoom}

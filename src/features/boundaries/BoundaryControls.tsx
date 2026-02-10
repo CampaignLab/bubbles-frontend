@@ -159,10 +159,23 @@ export function BoundaryControl({
                 </div>
             )}
 
-            <div style={{ fontSize: '10px', color: '#888', marginBottom: '4px' }}>
-                {selectionMode === 'Bubbles' ? 'PAST BOUNDARIES' : `AVAILABLE ${boundaryType.toUpperCase()}S`}
+            <div style={{ fontSize: '10px', color: '#888', marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                <span>{selectionMode === 'Bubbles' ? 'PAST BOUNDARIES' : `SELECT ${boundaryType.toUpperCase()}`}</span>
+                <span>{allBoundaries.length} entries</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+            <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                marginBottom: '16px',
+                maxHeight: '220px',
+                overflowY: 'auto',
+                paddingRight: '4px',
+                border: '1px solid #eee',
+                padding: '8px',
+                borderRadius: '4px',
+                background: '#fafafa'
+            }}>
                 {allBoundaries.length > 0 ? (
                     allBoundaries.map((b) => (
                         <BoundaryItem
@@ -173,8 +186,17 @@ export function BoundaryControl({
                         />
                     ))
                 ) : (
-                    <div style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', padding: '10px' }}>
-                        No data found in /data/{selectionMode === 'Bubbles' ? 'bubbles' : boundaryType === 'ward' ? 'ward' : 'const'}
+                    <div style={{
+                        fontSize: '11px',
+                        color: '#94a3b8',
+                        fontStyle: 'italic',
+                        textAlign: 'center',
+                        padding: '20px 10px',
+                        background: '#fff',
+                        border: '1px dashed #cbd5e1',
+                        borderRadius: '4px'
+                    }}>
+                        No {selectionMode === 'Bubbles' ? 'sessions' : boundaryType + 's'} found.
                     </div>
                 )}
             </div>
