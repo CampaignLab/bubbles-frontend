@@ -1,12 +1,11 @@
-import { lazy, Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
+import MapView from "../map/MapView";
 import { BoundaryControl } from "./BoundaryControls";
 import { useBoundaries } from "./useBoundaries";
 import { LogConsole } from "@/components/LogConsole";
 import { AnalyticsControls } from "../analytics/AnalyticsControls";
-
-const MapView = lazy(() => import("../map/MapView"));
-
 import { useBubbles } from "../analytics/useBubbles";
+import { BubbleDrawControls } from "../analytics/BubbleDrawControls";
 
 /**
  * Boundary Page component.
@@ -15,9 +14,41 @@ import { useBubbles } from "../analytics/useBubbles";
 export default function BoundaryPage() {
     const [selectionMode, setSelectionMode] = useState<'Administrative' | 'Bubbles'>('Administrative');
     const [boundaryType, setBoundaryType] = useState<'ward' | 'constituency'>('constituency');
+    const [isCtrlHeld, setIsCtrlHeld] = useState(false);
 
-    const { selectedId, setSelectedId, geojson, allBoundaries: adminBoundaries } = useBoundaries(boundaryType);
-    const { bubbles, availableBubbles, addBubble, generateAudienceCSV, saveBubbles, loadBubble } = useBubbles();
+    const {
+        selectedId,
+        setSelectedId,
+        geojson,
+        allBoundaries: adminBoundaries
+    } = useBoundaries(boundaryType);
+
+    const {
+        bubbles,
+        availableBubbles,
+        drawSettings,
+        setDrawSettings,
+        addBubble,
+        generateAudienceCSV,
+        saveBubbles,
+        loadBubble
+    } = useBubbles();
+
+    // Keyboard listener for Ctrl key
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Control') setIsCtrlHeld(true);
+        };
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.key === 'Control') setIsCtrlHeld(false);
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, []);
 
     // The list to show in the sidebar depends on the mode
     const activeList = selectionMode === 'Administrative' ? adminBoundaries : availableBubbles;
@@ -26,8 +57,6 @@ export default function BoundaryPage() {
         if (selectionMode === 'Administrative') {
             setSelectedId(id);
         } else {
-            // In Bubbles mode, the boundary selection doesn't apply to the map geometry
-            // but we might want to track which session is active
             if (id) {
                 loadBubble(id);
             }
@@ -42,7 +71,6 @@ export default function BoundaryPage() {
 
     return (
         <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-            {/* The MapView now receives both, but we control visibility via props or logic inside MapView if needed */}
             <Suspense fallback={
                 <div style={{
                     position: 'absolute',
@@ -60,8 +88,19 @@ export default function BoundaryPage() {
                     geojson={selectionMode === 'Administrative' ? geojson : null}
                     bubbles={selectionMode === 'Bubbles' ? bubbles : []}
                     onMapClick={handleMapClick}
+                    drawSettings={drawSettings}
+                    showPreview={selectionMode === 'Bubbles' && isCtrlHeld}
                 />
             </Suspense>
+
+            {/* Manual Drawing Controls - Only shows when CTRL is held in Bubble mode */}
+            <BubbleDrawControls
+                radiusKm={drawSettings.radiusKm}
+                setRadiusKm={(r: number) => setDrawSettings(prev => ({ ...prev, radiusKm: r }))}
+                type={drawSettings.type}
+                setType={(t: 'inclusion' | 'exclusion') => setDrawSettings(prev => ({ ...prev, type: t }))}
+                visible={selectionMode === 'Bubbles' && isCtrlHeld}
+            />
 
             {/* Feature 1: Left Side Selection */}
             <BoundaryControl

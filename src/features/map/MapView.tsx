@@ -9,6 +9,8 @@ interface MapViewProps {
     bubbles?: any[];
     onMapClick?: (lng: number, lat: number) => void;
     className?: string;
+    drawSettings?: { radiusKm: number, type: 'inclusion' | 'exclusion' };
+    showPreview?: boolean;
 }
 
 /**
@@ -21,7 +23,9 @@ export default function MapView({
     geojson,
     bubbles = [],
     onMapClick,
-    className
+    className,
+    drawSettings,
+    showPreview
 }: MapViewProps) {
     const logContext = useLogs();
 
@@ -48,6 +52,8 @@ export default function MapView({
                 onViewportChange={handleViewport}
                 onTileEvent={handleTileEvent}
                 onMapClick={onMapClick}
+                drawSettings={drawSettings}
+                showPreview={showPreview}
             />
         </div>
     );

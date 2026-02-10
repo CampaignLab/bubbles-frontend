@@ -44,11 +44,25 @@ interface ProtomapsMapProps {
     onTileEvent?: (eventName: string, data: any) => void;
     onMapClick?: (lng: number, lat: number) => void;
     mapConfig: MapConfig | null;
+    drawSettings?: { radiusKm: number, type: 'inclusion' | 'exclusion' };
+    showPreview?: boolean;
+    isCtrlHeld?: boolean;
 }
 
-export function ProtomapsMap({ geojson, bubbles = [], onViewportChange, onTileEvent, onMapClick, mapConfig }: ProtomapsMapProps) {
+export function ProtomapsMap({
+    geojson,
+    bubbles = [],
+    onViewportChange,
+    onTileEvent,
+    onMapClick,
+    mapConfig,
+    drawSettings,
+    showPreview = false,
+    isCtrlHeld = false
+}: ProtomapsMapProps) {
     const mapRef = useRef<MapRef | null>(null);
     const [isRendering, setIsRendering] = useState(false);
+    const [previewPoint, setPreviewPoint] = useState<{ lng: number, lat: number } | null>(null);
 
     const effectiveTileUrl = useMemo(() => {
         if (!mapConfig) return null;
@@ -97,15 +111,42 @@ export function ProtomapsMap({ geojson, bubbles = [], onViewportChange, onTileEv
         };
     }, [bubbles]);
 
+    const previewGeojson = useMemo(() => {
+        if (!showPreview || !previewPoint || !drawSettings) return null;
+        return {
+            type: 'FeatureCollection' as const,
+            features: [
+                circle([previewPoint.lng, previewPoint.lat], drawSettings.radiusKm, {
+                    units: 'kilometers',
+                    properties: { type: drawSettings.type, isPreview: true }
+                })
+            ]
+        };
+    }, [showPreview, previewPoint, drawSettings]);
+
     const handleMove = (evt: ViewStateChangeEvent) => {
         onViewportChange?.(evt.viewState);
     };
 
+    const handleMouseMove = useCallback((e: any) => {
+        if (showPreview) {
+            setPreviewPoint({ lng: e.lngLat.lng, lat: e.lngLat.lat });
+        } else {
+            setPreviewPoint(null);
+        }
+    }, [showPreview]);
+
     const handleClick = useCallback((e: any) => {
-        if (onMapClick) {
+        // Only allow click-to-add if Ctrl is held
+        if (onMapClick && e.originalEvent.ctrlKey) {
             onMapClick(e.lngLat.lng, e.lngLat.lat);
         }
     }, [onMapClick]);
+
+    const cursor = useMemo(() => {
+        if (isCtrlHeld) return 'crosshair';
+        return 'grab';
+    }, [isCtrlHeld]);
 
     const handleLoading = useCallback(() => setIsRendering(true), []);
     const handleIdle = useCallback(() => setIsRendering(false), []);
@@ -200,6 +241,7 @@ export function ProtomapsMap({ geojson, bubbles = [], onViewportChange, onTileEv
                 mapStyle={effectiveTileUrl}
                 style={{ width: "100%", height: "100%" }}
                 onMove={handleMove}
+                onMouseMove={handleMouseMove}
                 onData={onData}
                 onLoad={handleLoad}
                 onIdle={handleIdle}
@@ -207,6 +249,7 @@ export function ProtomapsMap({ geojson, bubbles = [], onViewportChange, onTileEv
                 minZoom={mapConfig?.minZoom}
                 maxZoom={mapConfig?.maxZoom}
                 maxBounds={mapConfig?.maxBounds}
+                cursor={cursor}
             >
                 {styleLoaded && (
                     <Source
@@ -222,6 +265,24 @@ export function ProtomapsMap({ geojson, bubbles = [], onViewportChange, onTileEv
                     <Source id="bubble-data" type="geojson" data={bubblesGeojson}>
                         <Layer {...bubbleFillLayer} />
                         <Layer {...bubbleOutlineLayer} />
+                    </Source>
+                )}
+
+                {styleLoaded && previewGeojson && (
+                    <Source id="preview-data" type="geojson" data={previewGeojson}>
+                        <Layer
+                            id="preview-fill"
+                            type="fill"
+                            paint={{
+                                ...((bubbleFillLayer as any).paint),
+                                "fill-opacity": 0.4
+                            }}
+                        />
+                        <Layer
+                            id="preview-outline"
+                            type="line"
+                            paint={(bubbleOutlineLayer as any).paint}
+                        />
                     </Source>
                 )}
             </Map>

@@ -15,6 +15,17 @@ export function useBubbles() {
     const [bubbles, setBubbles] = useState<BubblePoint[]>([]);
     const [availableBubbles, setAvailableBubbles] = useState<any[]>([]);
 
+    // Manual Drawing Settings
+    const [drawSettings, setDrawSettings] = useState<{
+        radiusKm: number;
+        type: 'inclusion' | 'exclusion';
+        units: 'km' | 'miles';
+    }>({
+        radiusKm: 1.0,
+        type: 'inclusion',
+        units: 'km'
+    });
+
     const refreshSavedList = useCallback(async () => {
         const list = await boundaryService.listSavedBubbles();
         setAvailableBubbles(list);
@@ -30,19 +41,19 @@ export function useBubbles() {
             id,
             lng,
             lat,
-            radiusKm: 1.0, // Minimum 1km as requested
-            type: 'inclusion'
+            radiusKm: drawSettings.radiusKm,
+            type: drawSettings.type
         };
         setBubbles(prev => [...prev, newBubble]);
-        addLog?.("Bubble Added", "info", `New bubble at ${lng.toFixed(4)}, ${lat.toFixed(4)}`);
-    }, [addLog]);
+        addLog?.("Bubble Added", "info", `${drawSettings.type} bubble (${drawSettings.radiusKm}km) created.`);
+    }, [drawSettings, addLog]);
 
     const updateBubble = useCallback((id: string, updates: Partial<BubblePoint>) => {
         setBubbles(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
     }, []);
 
     const removeBubble = useCallback((id: string) => {
-        setBubbles(prev => prev.filter(b => b.id === id));
+        setBubbles(prev => prev.filter(b => b.id !== id));
     }, []);
 
     const loadBubble = async (id: string) => {
@@ -79,9 +90,6 @@ export function useBubbles() {
         }
     };
 
-    /**
-     * Generates a sample CSV format for audiences.
-     */
     const generateAudienceCSV = () => {
         const header = "Type,Longitude,Latitude,RadiusKM\n";
         const rows = bubbles.map(b => `${b.type},${b.lng},${b.lat},${b.radiusKm}`).join("\n");
@@ -97,6 +105,8 @@ export function useBubbles() {
     return {
         bubbles,
         availableBubbles,
+        drawSettings,
+        setDrawSettings,
         addBubble,
         updateBubble,
         removeBubble,
