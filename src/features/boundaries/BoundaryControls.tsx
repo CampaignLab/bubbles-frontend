@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { BoundaryItem } from './BoundaryItem';
 import { BubblerItem } from '../bubbler/BubblerItem';
 import type { Boundary } from '@/lib/data';
@@ -33,11 +34,16 @@ export function BoundaryControl({
 }: BoundaryControlProps) {
     const selectedBoundary = allBoundaries.find(b => b.id === (selectionMode === 'Administrative' ? selectedBoundaryId : activeSessionId));
 
-    // Dummy estimates (would eventually be linked to Meta API)
-    const estimates = selectionMode === 'Administrative' && selectedBoundary ? {
-        population: Math.floor(Math.random() * 500000) + 100000,
-        targetUsers: Math.floor(Math.random() * 50000) + 5000
-    } : null;
+    // Stable estimates based on ID (to avoid flickering on re-render)
+    const estimates = useMemo(() => {
+        if (selectionMode === 'Administrative' && selectedBoundary) {
+            return {
+                population: Math.floor(Math.random() * 500000) + 100000,
+                targetUsers: Math.floor(Math.random() * 50000) + 5000
+            };
+        }
+        return null;
+    }, [selectionMode, selectedBoundary?.id]);
 
     const handleRename = (id: string) => {
         const newName = prompt("Rename Session:", activeSessionName || id);
@@ -164,7 +170,8 @@ export function BoundaryControl({
                             isSelected={true}
                             onClick={() => { }}
                             onDelete={(e) => { e.stopPropagation(); onDeleteSession(activeSessionId!); }}
-                            onRename={(e) => { e.stopPropagation(); handleRename(activeSessionId!); }}
+                            onRename={() => { }}
+                            showRename={false}
                         />
                     ) : (
                         <BoundaryItem
@@ -247,10 +254,13 @@ export function BoundaryControl({
                 flexDirection: 'column',
                 gap: '8px',
                 marginBottom: '16px',
-                maxHeight: '200px',
+                maxHeight: '160px',
                 overflowY: 'auto',
                 paddingRight: '6px',
-                padding: '4px'
+                padding: '8px',
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px'
             }}>
                 {allBoundaries.length > 0 ? (
                     allBoundaries.map((b) => (

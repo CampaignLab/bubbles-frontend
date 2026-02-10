@@ -10,6 +10,7 @@ import { BubblerLayer } from "../bubbler/BubblerLayer";
 import { BoundaryLayer } from "./BoundaryLayer";
 import type { MapRef } from "react-map-gl/maplibre";
 import maplibregl from "maplibre-gl";
+import * as turf from "@turf/turf";
 
 /**
  * Boundary Page component.
@@ -26,6 +27,7 @@ export default function BoundaryPage() {
         selectedId,
         setSelectedId,
         geojson,
+        geojsonId,
         allBoundaries: adminBoundaries
     } = useBoundaries(boundaryType);
 
@@ -43,6 +45,25 @@ export default function BoundaryPage() {
         deleteSession
     } = useBubbles();
 
+    const lastZoomId = useRef<string | null>(null);
+
+    // Block browser zoom and handle radius scaling
+    useEffect(() => {
+        const handleNativeWheel = (e: WheelEvent) => {
+            if (e.ctrlKey) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -1 : 1;
+                setDrawSettings(prev => ({
+                    ...prev,
+                    radiusKm: Math.max(1, Math.min(20, Math.round(prev.radiusKm + delta)))
+                }));
+            }
+        };
+
+        window.addEventListener('wheel', handleNativeWheel, { passive: false });
+        return () => window.removeEventListener('wheel', handleNativeWheel);
+    }, [setDrawSettings]);
+
     // Keyboard listener for Ctrl key
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -59,63 +80,62 @@ export default function BoundaryPage() {
         };
     }, []);
 
-    // fitBounds logic whenever geojson changes
+    // fitBounds logic: Consolidated and Guarded
     useEffect(() => {
         const map = mapRef.current?.getMap();
-        if (!map || !geojson) return;
+        if (!map) return;
 
-        try {
-            const features = geojson.features || (geojson.type === 'Feature' ? [geojson] : []);
-            if (!features.length) return;
+        const currentId = selectionMode === 'Administrative' ? selectedId : activeSessionId;
+        if (!currentId) return;
 
-            const bounds = new maplibregl.LngLatBounds();
-            let hasPoints = false;
+        // Data Readiness Check: Does data in memory match active selection?
+        const isDataReady = (selectionMode === 'Administrative')
+            ? (geojson && geojsonId === selectedId)
+            : (bubbles.length > 0 && activeSessionId === currentId);
 
-            features.forEach((f: any) => {
-                const geom = f.geometry;
-                if (!geom) return;
+        if (!isDataReady || lastZoomId.current === currentId) return;
 
-                const processCoords = (coords: any) => {
-                    if (!coords) return;
-                    if (typeof coords[0] === 'number') {
-                        bounds.extend(coords as [number, number]);
-                        hasPoints = true;
-                    } else if (Array.isArray(coords)) {
-                        coords.forEach(processCoords);
-                    }
-                };
-                processCoords(geom.coordinates);
-            });
-
-            if (hasPoints) {
-                map.fitBounds(bounds, {
-                    padding: 50,
-                    duration: 500,
-                    maxZoom: 11
-                });
-            }
-        } catch (error) {
-            console.error("Error updated map bounds:", error);
+        let bbox: number[] | null = null;
+        if (selectionMode === 'Administrative' && geojson) {
+            bbox = turf.bbox(geojson);
+        } else if (selectionMode === 'Bubbles' && bubbles.length > 0) {
+            const points = turf.featureCollection(bubbles.map(b => turf.point([b.lng, b.lat])));
+            bbox = turf.bbox(points);
         }
-    }, [geojson]);
 
-    // The list to show in the sidebar depends on the mode
-    const activeList = selectionMode === 'Administrative' ? adminBoundaries : availableBubbles;
+        if (bbox && bbox[0] !== Infinity && bbox[0] !== -Infinity) {
+            const bounds = new maplibregl.LngLatBounds([bbox[0], bbox[1]], [bbox[2], bbox[3]]);
+            lastZoomId.current = currentId;
+
+            const diameterKm = turf.distance([bbox[0], bbox[1]], [bbox[2], bbox[3]], { units: 'kilometers' });
+
+            // Comfortable Zoom Thresholds
+            let dynamicMaxZoom = 12;
+            if (diameterKm < 1.0) dynamicMaxZoom = 14.5;
+            else if (diameterKm < 2.5) dynamicMaxZoom = 13.5;
+            else if (diameterKm > 20) dynamicMaxZoom = 10.5;
+            else if (diameterKm > 10) dynamicMaxZoom = 11.5;
+
+            map.fitBounds(bounds, {
+                padding: 100,
+                duration: 500,
+                maxZoom: dynamicMaxZoom
+            });
+        }
+    }, [geojson, geojsonId, bubbles, selectionMode, selectedId, activeSessionId]);
 
     // Load bubbles when administrative boundary is selected
     useEffect(() => {
         if (selectionMode === 'Administrative' && selectedId) {
             loadBubble(selectedId);
         }
-    }, [selectedId, selectionMode]);
+    }, [selectedId, selectionMode, loadBubble]);
 
     const handleSelect = (id: string | null) => {
         if (selectionMode === 'Administrative') {
             setSelectedId(id);
-        } else {
-            if (id) {
-                loadBubble(id);
-            }
+        } else if (id) {
+            loadBubble(id);
         }
     };
 
@@ -148,23 +168,27 @@ export default function BoundaryPage() {
                     Loading Map...
                 </div>
             }>
-                <MapView
-                    ref={mapRef}
-                    onMapClick={handleMapClick}
-                    onMouseMove={handleMouseMove}
-                    isCtrlHeld={isCtrlHeld}
-                >
-                    <BoundaryLayer geojson={selectionMode === 'Administrative' ? geojson : null} />
-                    <BubblerLayer
-                        bubbles={selectionMode === 'Bubbles' ? bubbles : []}
-                        drawSettings={drawSettings}
-                        previewPoint={previewPoint}
-                        showPreview={selectionMode === 'Bubbles' && isCtrlHeld}
-                    />
-                </MapView>
+                <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                    <MapView
+                        ref={mapRef}
+                        onMapClick={handleMapClick}
+                        onMouseMove={handleMouseMove}
+                        isCtrlHeld={isCtrlHeld}
+                        dragPan={isCtrlHeld ? { mouseButton: 'right' } : true}
+                        scrollZoom={isCtrlHeld ? false : true}
+                    >
+                        <BoundaryLayer geojson={selectionMode === 'Administrative' ? geojson : null} />
+                        <BubblerLayer
+                            bubbles={selectionMode === 'Bubbles' ? bubbles : []}
+                            drawSettings={drawSettings}
+                            previewPoint={previewPoint}
+                            showPreview={selectionMode === 'Bubbles' && isCtrlHeld}
+                        />
+                    </MapView>
+                </div>
             </Suspense>
 
-            {/* Manual Drawing Controls - Only shows when CTRL is held in Bubble mode */}
+            {/* Manual Drawing Controls */}
             <BubbleDrawControls
                 radiusKm={drawSettings.radiusKm}
                 setRadiusKm={(r: number) => setDrawSettings(prev => ({ ...prev, radiusKm: r }))}
@@ -173,7 +197,7 @@ export default function BoundaryPage() {
                 visible={selectionMode === 'Bubbles' && isCtrlHeld}
             />
 
-            {/* Feature 1: Left Side Selection */}
+            {/* Left Side Selection */}
             <BoundaryControl
                 selectedBoundaryId={selectedId}
                 activeSessionId={activeSessionId}
@@ -181,17 +205,15 @@ export default function BoundaryPage() {
                 onSelect={handleSelect}
                 boundaryType={boundaryType}
                 onTypeChange={setBoundaryType}
-                allBoundaries={activeList}
+                allBoundaries={selectionMode === 'Administrative' ? adminBoundaries : availableBubbles}
                 selectionMode={selectionMode}
-                onModeChange={(mode) => {
-                    setSelectionMode(mode);
-                }}
+                onModeChange={setSelectionMode}
                 onExportCSV={generateAudienceCSV}
                 onSaveBubbles={saveBubbles}
                 onDeleteSession={deleteSession}
             />
 
-            {/* Feature 2: Right Side Analytics */}
+            {/* Right Side Analytics */}
             <AnalyticsControls activeBoundaryId={selectedId} bubbles={bubbles} />
 
             {/* System Log Console */}

@@ -6,9 +6,10 @@ interface BubblerItemProps {
     onClick: () => void;
     onDelete: (e: React.MouseEvent) => void;
     onRename: (e: React.MouseEvent) => void;
+    showRename?: boolean;
 }
 
-export function BubblerItem({ name, isSelected, onClick, onDelete, onRename }: BubblerItemProps) {
+export function BubblerItem({ name, isSelected, onClick, onDelete, onRename, showRename = true }: BubblerItemProps) {
     return (
         <div
             onClick={onClick}
@@ -45,25 +46,27 @@ export function BubblerItem({ name, isSelected, onClick, onDelete, onRename }: B
             </div>
 
             <div style={{ display: 'flex', gap: '4px', marginLeft: '8px' }}>
-                <button
-                    onClick={onRename}
-                    title="Rename session"
-                    style={{
-                        padding: '4px',
-                        background: 'transparent',
-                        border: 'none',
-                        color: '#64748b',
-                        cursor: 'pointer',
-                        borderRadius: '4px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                >
-                    <Edit3 size={14} />
-                </button>
+                {showRename && (
+                    <button
+                        onClick={onRename}
+                        title="Rename session"
+                        style={{
+                            padding: '4px',
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#64748b',
+                            cursor: 'pointer',
+                            borderRadius: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                    >
+                        <Edit3 size={14} />
+                    </button>
+                )}
                 <button
                     onClick={onDelete}
                     title="Delete session"

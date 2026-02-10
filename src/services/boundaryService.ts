@@ -17,6 +17,41 @@ const API_BASE = import.meta.env.VITE_API_URL
     ? import.meta.env.VITE_API_URL
     : (import.meta.env.DEV ? '/api/data' : `${import.meta.env.BASE_URL}data`);
 
+const LOCAL_STORAGE_KEY = 'bubbles_user_sessions';
+
+/**
+ * Internal helper to manage the local user cache (localStorage).
+ */
+const userCache = {
+    getAll(): Record<string, any> {
+        try {
+            return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '{}');
+        } catch {
+            return {};
+        }
+    },
+    get(id: string): any | null {
+        return this.getAll()[id]?.data || null;
+    },
+    save(id: string, name: string, data: any) {
+        const sessions = this.getAll();
+        sessions[id] = { name, data, updatedAt: Date.now() };
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sessions));
+    },
+    delete(id: string) {
+        const sessions = this.getAll();
+        delete sessions[id];
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sessions));
+    },
+    list(): BoundaryMetadata[] {
+        const sessions = this.getAll();
+        return Object.keys(sessions).map(id => ({
+            id,
+            name: sessions[id].name
+        }));
+    }
+};
+
 export const boundaryService = {
     /**
      * Lists available boundaries of a certain type.
@@ -29,48 +64,77 @@ export const boundaryService = {
     },
 
     /**
-     * Lists saved bubble sessions.
+     * Lists saved bubble sessions - merges API samples and Local Cache.
      */
     async listSavedBubbles(): Promise<BoundaryMetadata[]> {
-        const response = await fetch(`${API_BASE}/bubbles/`);
-        if (!response.ok) return [];
-        return await response.json();
+        // 1. Get official samples from API
+        let apiList: BoundaryMetadata[] = [];
+        try {
+            const response = await fetch(`${API_BASE}/bubbles/`);
+            if (response.ok) apiList = await response.json();
+        } catch (e) {
+            console.warn("Could not fetch bubble samples from API", e);
+        }
+
+        // 2. Get user sessions from local cache
+        const localList = userCache.list();
+
+        // 3. Merge (local overrides API if IDs match)
+        const combined = [...localList];
+        const localIds = new Set(localList.map(l => l.id));
+
+        apiList.forEach(apiItem => {
+            if (!localIds.has(apiItem.id)) {
+                combined.push(apiItem);
+            }
+        });
+
+        return combined;
     },
+
     /**
      * Fetches a GeoJSON boundary by ID and type.
      */
     async getBoundaryGeoJSON(type: 'ward' | 'constituency', id: string): Promise<GeoJSON.FeatureCollection> {
-        // Mapping types to backend/mock paths
         const path = type === 'ward' ? `ward/${encodeURIComponent(id)}.geojson` : `const/${encodeURIComponent(id)}.geojson`;
         const response = await fetch(`${API_BASE}/${path}`);
-
-        if (!response.ok) {
-            throw new Error(`Failed to fetch boundary: ${response.statusText}`);
-        }
-
+        if (!response.ok) throw new Error(`Failed to fetch boundary: ${response.statusText}`);
         return await response.json();
     },
 
     /**
-     * Saves a custom bubble locally.
+     * Saves a custom bubble.
+     * Always saves to Local Cache. 
+     * In DEV, also attempts to sync to API (Mock server writes to disk).
      */
     async saveBubble(id: string, geojson: any): Promise<void> {
-        const response = await fetch(`${API_BASE}/bubbles/${encodeURIComponent(id)}.json`, {
-            method: 'POST',
-            body: JSON.stringify(geojson),
-            headers: { 'Content-Type': 'application/json' }
-        });
+        // 1. Always write to user cache (works everywhere)
+        userCache.save(id, id, geojson);
 
-        if (!response.ok) {
-            throw new Error(`Failed to save bubble: ${response.statusText}`);
+        // 2. In DEV, attempt to sync to disk via Mock API
+        if (import.meta.env.DEV) {
+            try {
+                await fetch(`${API_BASE}/bubbles/${encodeURIComponent(id)}.json`, {
+                    method: 'POST',
+                    body: JSON.stringify(geojson),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            } catch (e) {
+                console.error("Dev-sycn to disk failed:", e);
+            }
         }
     },
 
     /**
-     * Fetches all saved bubbles (not implemented in mock backend yet, would need directory listing)
-     * For now, we'll assume the frontend knows the bubble IDs or we use a manifest file.
+     * Fetches a saved bubble session.
+     * Checks Local Cache first, then falls back to API.
      */
     async getBubble(id: string): Promise<any> {
+        // 1. Check local cache
+        const localData = userCache.get(id);
+        if (localData) return localData;
+
+        // 2. Fallback to API
         const response = await fetch(`${API_BASE}/bubbles/${encodeURIComponent(id)}.json`);
         if (!response.ok) throw new Error("Bubble not found");
         return await response.json();
@@ -78,14 +142,22 @@ export const boundaryService = {
 
     /**
      * Deletes a saved bubble session.
+     * Always removes from Local Cache.
+     * In DEV, also syncs deletion to API.
      */
     async deleteBubble(id: string): Promise<void> {
-        const response = await fetch(`${API_BASE}/bubbles/${encodeURIComponent(id)}.json`, {
-            method: 'DELETE'
-        });
+        // 1. Remove from local cache
+        userCache.delete(id);
 
-        if (!response.ok) {
-            throw new Error(`Failed to delete bubble: ${response.statusText}`);
+        // 2. Sync to API in DEV
+        if (import.meta.env.DEV) {
+            try {
+                await fetch(`${API_BASE}/bubbles/${encodeURIComponent(id)}.json`, {
+                    method: 'DELETE'
+                });
+            } catch (e) {
+                console.error("Dev-sync delete failed:", e);
+            }
         }
     }
 };

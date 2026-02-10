@@ -9,12 +9,10 @@ export function useBoundaries(type: 'ward' | 'constituency' = 'constituency') {
     const { addLog } = useLogs() || {};
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [geojson, setGeojson] = useState<any | null>(null);
+    const [geojsonId, setGeojsonId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [availableBoundaries, setAvailableBoundaries] = useState<any[]>([]);
 
-    const currentBoundary = availableBoundaries.find(b => b.id === selectedId) || null;
-
-    // Fetch the list of available boundaries when type changes
     useEffect(() => {
         boundaryService.listBoundaries(type).then(setAvailableBoundaries);
     }, [type]);
@@ -22,32 +20,45 @@ export function useBoundaries(type: 'ward' | 'constituency' = 'constituency') {
     useEffect(() => {
         if (!selectedId) {
             setGeojson(null);
+            setGeojsonId(null);
             return;
         }
 
+        let active = true;
+        setGeojson(null);
+        setGeojsonId(null);
         setLoading(true);
         addLog?.("Fetching Boundary", "info", `Loading ${type} data for ${selectedId}`);
 
         boundaryService.getBoundaryGeoJSON(type, selectedId)
             .then(data => {
+                if (!active) return;
                 setGeojson(data);
+                setGeojsonId(selectedId);
                 setLoading(false);
-                addLog?.("Boundary Received", "success", `Data parsed for ${selectedId} (${data.features?.length || 0} features)`);
+                addLog?.("Boundary Received", "success", `Data parsed for ${selectedId}`);
             })
             .catch(err => {
+                if (!active) return;
                 console.error("Failed to load geojson:", err);
                 addLog?.("Load Error", "error", err.message);
                 setGeojson(null);
+                setGeojsonId(null);
                 setLoading(false);
             });
+
+        return () => {
+            active = false;
+        };
     }, [selectedId, type, addLog]);
 
     return {
         selectedId,
         setSelectedId,
         geojson,
+        geojsonId,
         loading,
-        currentBoundary,
+        currentBoundary: availableBoundaries.find(b => b.id === selectedId) || null,
         allBoundaries: availableBoundaries
     };
 }

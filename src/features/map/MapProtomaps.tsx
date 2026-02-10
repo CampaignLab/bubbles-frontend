@@ -15,6 +15,8 @@ interface ProtomapsMapProps {
     onMouseMove?: (e: any) => void;
     mapConfig: MapConfig | null;
     isCtrlHeld?: boolean;
+    dragPan?: boolean | any;
+    scrollZoom?: boolean | any;
 }
 
 export const ProtomapsMap = forwardRef<MapRef, ProtomapsMapProps>(({
@@ -24,7 +26,9 @@ export const ProtomapsMap = forwardRef<MapRef, ProtomapsMapProps>(({
     onMapClick,
     onMouseMove,
     mapConfig,
-    isCtrlHeld = false
+    isCtrlHeld = false,
+    dragPan = true,
+    scrollZoom = true
 }, ref) => {
     const [isRendering, setIsRendering] = useState(false);
     const [styleLoaded, setStyleLoaded] = useState(false);
@@ -124,6 +128,8 @@ export const ProtomapsMap = forwardRef<MapRef, ProtomapsMapProps>(({
                 maxZoom={mapConfig?.maxZoom}
                 maxBounds={mapConfig?.maxBounds}
                 cursor={cursor}
+                dragPan={dragPan}
+                scrollZoom={scrollZoom}
             >
                 {styleLoaded && children}
             </Map>

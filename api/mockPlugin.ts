@@ -64,6 +64,21 @@ export function mockApiPlugin(): Plugin {
                 });
                 return;
             }
+
+            // HANDLE DELETE
+            if (req.method === 'DELETE') {
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                    res.statusCode = 200;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify({ success: true }));
+                } else {
+                    res.statusCode = 404;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify({ error: "File not found" }));
+                }
+                return;
+            }
         }
         next();
     };

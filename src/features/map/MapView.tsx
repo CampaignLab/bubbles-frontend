@@ -11,6 +11,8 @@ interface MapViewProps {
     className?: string;
     children?: React.ReactNode;
     isCtrlHeld?: boolean;
+    dragPan?: boolean | any;
+    scrollZoom?: boolean | any;
 }
 
 /**
@@ -23,7 +25,9 @@ const MapView = forwardRef<MapRef, MapViewProps>(({
     onMouseMove,
     className,
     children,
-    isCtrlHeld
+    isCtrlHeld,
+    dragPan,
+    scrollZoom
 }, ref) => {
     const logContext = useLogs();
 
@@ -51,6 +55,8 @@ const MapView = forwardRef<MapRef, MapViewProps>(({
                 onMapClick={onMapClick}
                 onMouseMove={onMouseMove}
                 isCtrlHeld={isCtrlHeld}
+                dragPan={dragPan}
+                scrollZoom={scrollZoom}
             >
                 {children}
             </ProtomapsMap>

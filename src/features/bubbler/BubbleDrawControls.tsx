@@ -31,7 +31,7 @@ export function BubbleDrawControls({
             fontFamily: 'sans-serif'
         }}>
             <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>
-                DRAW SETTINGS (CTRL HELD)
+                (CTRL) DRAW SETTINGS
             </h4>
 
             <div style={{ marginBottom: '16px' }}>

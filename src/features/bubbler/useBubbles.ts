@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { boundaryService } from '@/services/boundaryService';
 import { useLogs } from '@/context/logContext';
 
@@ -16,6 +16,9 @@ export function useBubbles() {
     const [availableBubbles, setAvailableBubbles] = useState<any[]>([]);
     const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
     const [activeSessionName, setActiveSessionName] = useState<string | null>(null);
+
+    // Tracking for race conditions
+    const lastRequestRef = useRef<string | null>(null);
 
     // Manual Drawing Settings
     const [drawSettings, setDrawSettings] = useState<{
@@ -38,7 +41,6 @@ export function useBubbles() {
     }, [refreshSavedList]);
 
     const addBubble = useCallback((lng: number, lat: number) => {
-        // Auto-create session if none active
         if (!activeSessionId) {
             const newId = `Session ${Date.now()}`;
             setActiveSessionId(newId);
@@ -58,28 +60,40 @@ export function useBubbles() {
         addLog?.("Bubble Added", "info", `${drawSettings.type} bubble (${drawSettings.radiusKm}km) created.`);
     }, [drawSettings, addLog, activeSessionId]);
 
-    const updateBubble = useCallback((id: string, updates: Partial<BubblePoint>) => {
-        setBubbles(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
-    }, []);
+    const loadBubble = useCallback(async (id: string) => {
+        // Prevent redundant loads if already active or being fetched
+        if (id === activeSessionId && bubbles.length > 0) return;
+        if (id === lastRequestRef.current) return;
 
-    const removeBubble = useCallback((id: string) => {
-        setBubbles(prev => prev.filter(b => b.id !== id));
-    }, []);
+        lastRequestRef.current = id;
+        setBubbles([]);
 
-    const loadBubble = async (id: string) => {
         try {
             const data = await boundaryService.getBubble(id);
+
+            // Validate that we still care about this specific request
+            if (lastRequestRef.current !== id) return;
+
             if (data.features) {
                 const points = data.features.map((f: any) => f.properties as BubblePoint);
                 setBubbles(points);
                 setActiveSessionId(id);
-                setActiveSessionName(id);
+                const saved = availableBubbles.find(b => b.id === id);
+                setActiveSessionName(saved ? saved.name : id);
                 addLog?.("Session Loaded", "success", `Loaded ${points.length} points from ${id}`);
             }
         } catch (err: any) {
-            addLog?.("Load Error", "error", err.message);
+            if (lastRequestRef.current !== id) return;
+
+            setBubbles([]);
+            setActiveSessionId(id);
+            setActiveSessionName(id);
+
+            if (!err.message?.includes('404') && !err.message?.includes('found')) {
+                addLog?.("Load Error", "error", err.message);
+            }
         }
-    };
+    }, [activeSessionId, bubbles.length, availableBubbles, addLog]);
 
     const saveBubbles = async (name: string) => {
         try {
@@ -111,6 +125,7 @@ export function useBubbles() {
                 setBubbles([]);
                 setActiveSessionId(null);
                 setActiveSessionName(null);
+                lastRequestRef.current = null;
             }
             addLog?.("Session Deleted", "info", `Removed session ${id}`);
             refreshSavedList();
@@ -139,8 +154,6 @@ export function useBubbles() {
         activeSessionName,
         setDrawSettings,
         addBubble,
-        updateBubble,
-        removeBubble,
         saveBubbles,
         loadBubble,
         deleteSession,
