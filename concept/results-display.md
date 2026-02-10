@@ -1,4 +1,4 @@
-
+```tsx
 "use client";
 
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from "recharts";

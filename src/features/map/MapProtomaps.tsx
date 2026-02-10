@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef, useCallback, useEffect } from "react";
+import { useMemo, useRef, useCallback, useEffect } from "react";
 import Map, { Source, Layer } from "react-map-gl/maplibre";
 import type { MapRef, ViewStateChangeEvent, LayerProps } from "react-map-gl/maplibre";
 // import type { MapDataEvent } from "maplibre-gl";

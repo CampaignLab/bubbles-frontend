@@ -1,4 +1,3 @@
-import React from 'react';
 import { useLogs } from '@/context/logContext';
 
 export function LogConsole() {

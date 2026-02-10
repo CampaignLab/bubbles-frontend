@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { boundaries, type Boundary } from "@/lib/data";
+import { boundaries } from "@/lib/data";
 import { useLogs } from "@/context/logContext";
 
 /**
