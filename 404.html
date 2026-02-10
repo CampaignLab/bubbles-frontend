@@ -1,16 +1,83 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/bubbles-frontend/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>bubbles-frontend</title>
-    <script type="module" crossorigin src="/bubbles-frontend/assets/index-BGvSIF2n.js"></script>
-    <link rel="modulepreload" crossorigin href="/bubbles-frontend/assets/maplibre-vendor-Csj1amlE.js">
-    <link rel="stylesheet" crossorigin href="/bubbles-frontend/assets/maplibre-vendor-kWVbv8B-.css">
-    <link rel="stylesheet" crossorigin href="/bubbles-frontend/assets/index-Dx8zgHWF.css">
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/bubbles-frontend/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>bubbles-frontend</title>
+  <!-- Preconnect to map domains to speed up tile fetching -->
+  <link rel="preconnect" href="https://api.protomaps.com">
+  <link rel="dns-prefetch" href="https://api.protomaps.com">
+  <style>
+    #splash-screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, #ffffff 0%, #f1f5f9 100%);
+      z-index: 9999;
+      transition: opacity 0.5s ease-out, visibility 0.5s;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    .loader-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid #e2e8f0;
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    .loading-text {
+      font-size: 1.25rem;
+      font-weight: 500;
+      color: #1e293b;
+      letter-spacing: -0.025em;
+    }
+
+    .sub-text {
+      font-size: 0.875rem;
+      color: #64748b;
+      margin-top: -16px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    body.app-loaded #splash-screen {
+      opacity: 0;
+      visibility: hidden;
+    }
+  </style>
+  <script type="module" crossorigin src="/bubbles-frontend/assets/index-DANM1y0U.js"></script>
+  <link rel="modulepreload" crossorigin href="/bubbles-frontend/assets/maplibre-vendor-Csj1amlE.js">
+  <link rel="stylesheet" crossorigin href="/bubbles-frontend/assets/maplibre-vendor-kWVbv8B-.css">
+  <link rel="stylesheet" crossorigin href="/bubbles-frontend/assets/index-Dx8zgHWF.css">
+</head>
+
+<body>
+  <div id="splash-screen">
+    <div class="loader-container">
+      <div class="spinner"></div>
+      <div class="loading-text">Preparing Content</div>
+      <div class="sub-text">Setting up your campaign environment...</div>
+    </div>
+  </div>
+  <div id="root"></div>
+</body>
+
 </html>
