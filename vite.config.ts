@@ -24,4 +24,15 @@ export default defineConfig({
     // }),
   ],
   base: '/bubbles-frontend/',
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('maplibre-gl') || id.includes('react-map-gl')) {
+            return 'maplibre-vendor';
+          }
+        },
+      },
+    },
+  },
 })
