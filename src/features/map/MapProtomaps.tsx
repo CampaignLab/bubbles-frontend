@@ -145,7 +145,6 @@ export function ProtomapsMap({ geojson, onViewportChange, onTileEvent, mapConfig
     return (
         <Map
             ref={mapRef}
-            key={effectiveTileUrl}
             initialViewState={initialViewport}
             mapStyle={effectiveTileUrl}
             style={{ width: "100%", height: "100%" }}
@@ -153,6 +152,7 @@ export function ProtomapsMap({ geojson, onViewportChange, onTileEvent, mapConfig
             onData={onData}
             minZoom={mapConfig?.minZoom}
             maxZoom={mapConfig?.maxZoom}
+            maxBounds={mapConfig?.maxBounds}
         >
             {memoizedGeojson && (
                 <Source id="boundary-data" type="geojson" data={memoizedGeojson}>

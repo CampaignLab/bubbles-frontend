@@ -30,6 +30,7 @@ export interface MapConfig {
     startZoom: number;
     minZoom?: number;
     maxZoom?: number;
+    maxBounds?: [[number, number], [number, number]];
 }
 
 export const mapConfigurations: Record<MapProvider, SystemConfig> = {
@@ -63,6 +64,8 @@ export const defaultMapConfig: MapConfig = {
     // Pull the key from Vite's env system
     apiKey: import.meta.env.VITE_PROTOMAPS_API_KEY || '',
     startLat: 54.5,
-    startLng: -2.5,
-    startZoom: 5,
+    startLng: -1.0,
+    startZoom: 6.0, // More zoomed in as requested
+    // Wider bounds to prevent "blank map" glitches on load
+    maxBounds: [[-12.0, 47.0], [8.0, 63.0]],
 };
