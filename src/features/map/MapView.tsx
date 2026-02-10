@@ -1,32 +1,30 @@
-import { useCallback } from "react";
+import { useCallback, forwardRef } from "react";
 import { ProtomapsMap } from "./MapProtomaps";
 import { useLogs } from "@/context/logContext";
 import { defaultMapConfig, type MapConfig } from "@/lib/config";
+import type { MapRef } from "react-map-gl/maplibre";
 
 interface MapViewProps {
     config?: MapConfig;
-    geojson?: any;
-    bubbles?: any[];
     onMapClick?: (lng: number, lat: number) => void;
+    onMouseMove?: (e: any) => void;
     className?: string;
-    drawSettings?: { radiusKm: number, type: 'inclusion' | 'exclusion' };
-    showPreview?: boolean;
+    children?: React.ReactNode;
+    isCtrlHeld?: boolean;
 }
 
 /**
  * Universal Map View component. 
  * Decoupled from any specific business logic like "Boundaries".
- * Handles its own viewport and tile event logging.
  */
-export default function MapView({
+const MapView = forwardRef<MapRef, MapViewProps>(({
     config = defaultMapConfig,
-    geojson,
-    bubbles = [],
     onMapClick,
+    onMouseMove,
     className,
-    drawSettings,
-    showPreview
-}: MapViewProps) {
+    children,
+    isCtrlHeld
+}, ref) => {
     const logContext = useLogs();
 
     const handleViewport = useCallback((v: any) => {
@@ -46,15 +44,19 @@ export default function MapView({
     return (
         <div className={className} style={{ width: '100%', height: '100%', position: 'relative' }}>
             <ProtomapsMap
+                ref={ref}
                 mapConfig={config}
-                geojson={geojson}
-                bubbles={bubbles}
                 onViewportChange={handleViewport}
                 onTileEvent={handleTileEvent}
                 onMapClick={onMapClick}
-                drawSettings={drawSettings}
-                showPreview={showPreview}
-            />
+                onMouseMove={onMouseMove}
+                isCtrlHeld={isCtrlHeld}
+            >
+                {children}
+            </ProtomapsMap>
         </div>
     );
-}
+});
+
+MapView.displayName = 'MapView';
+export default MapView;

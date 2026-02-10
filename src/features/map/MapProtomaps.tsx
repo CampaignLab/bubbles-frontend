@@ -1,77 +1,41 @@
 "use client";
 
-import { useMemo, useRef, useCallback, useEffect, useState } from "react";
-import Map, { Source, Layer } from "react-map-gl/maplibre";
-import type { MapRef, ViewStateChangeEvent, LayerProps } from "react-map-gl/maplibre";
-// import type { MapDataEvent } from "maplibre-gl";
+import { useMemo, useCallback, useState, forwardRef } from "react";
+import Map from "react-map-gl/maplibre";
+import type { MapRef, ViewStateChangeEvent } from "react-map-gl/maplibre";
 import { mapConfigurations } from "@/lib/config";
 import type { MapConfig } from "@/lib/config";
-import { circle } from "@turf/turf";
 import "maplibre-gl/dist/maplibre-gl.css";
-import maplibregl from "maplibre-gl";
-
-const polygonLayer: LayerProps = {
-    id: "boundary-polygon",
-    type: "fill",
-    paint: {
-        "fill-color": "hsl(211, 100%, 36%)",
-        "fill-opacity": 0.2,
-    },
-};
-
-const bubbleFillLayer: LayerProps = {
-    id: "bubble-fill",
-    type: "fill",
-    paint: {
-        "fill-color": ["case", ["==", ["get", "type"], "inclusion"], "#22c55e", "#ef4444"],
-        "fill-opacity": 0.2,
-    },
-};
-
-const bubbleOutlineLayer: LayerProps = {
-    id: "bubble-outline",
-    type: "line",
-    paint: {
-        "line-color": ["case", ["==", ["get", "type"], "inclusion"], "#16a34a", "#dc2626"],
-        "line-width": 2,
-    },
-};
 
 interface ProtomapsMapProps {
-    geojson?: any;
-    bubbles?: any[];
+    children?: React.ReactNode;
     onViewportChange?: (viewport: { latitude: number, longitude: number, zoom: number, bearing: number, pitch: number }) => void;
     onTileEvent?: (eventName: string, data: any) => void;
     onMapClick?: (lng: number, lat: number) => void;
+    onMouseMove?: (e: any) => void;
     mapConfig: MapConfig | null;
-    drawSettings?: { radiusKm: number, type: 'inclusion' | 'exclusion' };
-    showPreview?: boolean;
     isCtrlHeld?: boolean;
 }
 
-export function ProtomapsMap({
-    geojson,
-    bubbles = [],
+export const ProtomapsMap = forwardRef<MapRef, ProtomapsMapProps>(({
+    children,
     onViewportChange,
     onTileEvent,
     onMapClick,
+    onMouseMove,
     mapConfig,
-    drawSettings,
-    showPreview = false,
     isCtrlHeld = false
-}: ProtomapsMapProps) {
-    const mapRef = useRef<MapRef | null>(null);
+}, ref) => {
     const [isRendering, setIsRendering] = useState(false);
-    const [previewPoint, setPreviewPoint] = useState<{ lng: number, lat: number } | null>(null);
+    const [styleLoaded, setStyleLoaded] = useState(false);
 
     const effectiveTileUrl = useMemo(() => {
         if (!mapConfig) return null;
         const mapSystemConfig = mapConfigurations[mapConfig.mapSystem];
         const baseMap = mapSystemConfig.baseMaps[mapConfig.baseMapKey];
 
-        // Check if we have API key before proceeding
         if (baseMap.needsApiKey && !mapConfig.apiKey) {
-            return null; // Trigger error display in the component
+            return null;
         }
         const theme = baseMap?.themes[mapConfig.themeKey];
         return theme ? `${theme.urlTemplate}?key=${mapConfig.apiKey}` : null;
@@ -92,55 +56,12 @@ export function ProtomapsMap({
         };
     }, [mapConfig]);
 
-
-    const [styleLoaded, setStyleLoaded] = useState(false);
-
-    const memoizedGeojson = useMemo(() => {
-        return geojson;
-    }, [geojson]);
-
-    // Convert bubble points to polygons for rendering
-    const bubblesGeojson = useMemo(() => {
-        if (!bubbles.length) return null;
-        return {
-            type: 'FeatureCollection' as const,
-            features: bubbles.map(b => circle([b.lng, b.lat], b.radiusKm, {
-                units: 'kilometers',
-                properties: { ...b }
-            }))
-        };
-    }, [bubbles]);
-
-    const previewGeojson = useMemo(() => {
-        if (!showPreview || !previewPoint || !drawSettings) return null;
-        return {
-            type: 'FeatureCollection' as const,
-            features: [
-                circle([previewPoint.lng, previewPoint.lat], drawSettings.radiusKm, {
-                    units: 'kilometers',
-                    properties: { type: drawSettings.type, isPreview: true }
-                })
-            ]
-        };
-    }, [showPreview, previewPoint, drawSettings]);
-
     const handleMove = (evt: ViewStateChangeEvent) => {
         onViewportChange?.(evt.viewState);
     };
 
-    const handleMouseMove = useCallback((e: any) => {
-        if (showPreview) {
-            setPreviewPoint({ lng: e.lngLat.lng, lat: e.lngLat.lat });
-        } else {
-            setPreviewPoint(null);
-        }
-    }, [showPreview]);
-
     const handleClick = useCallback((e: any) => {
-        // Only allow click-to-add if Ctrl is held
-        if (onMapClick && e.originalEvent.ctrlKey) {
-            onMapClick(e.lngLat.lng, e.lngLat.lat);
-        }
+        onMapClick?.(e.lngLat.lng, e.lngLat.lat);
     }, [onMapClick]);
 
     const cursor = useMemo(() => {
@@ -165,54 +86,6 @@ export function ProtomapsMap({
         }
     }, [onTileEvent, handleLoading]);
 
-    useEffect(() => {
-        const map = mapRef.current?.getMap();
-        if (!map || !styleLoaded) return;
-
-        if (memoizedGeojson) {
-            try {
-                // Imperatively update the source for immediate feedback
-                const source = map.getSource('boundary-data') as maplibregl.GeoJSONSource;
-                if (source) {
-                    source.setData(memoizedGeojson);
-                }
-
-                const features = memoizedGeojson.features || (memoizedGeojson.type === 'Feature' ? [memoizedGeojson] : []);
-                if (!features.length) return;
-
-                const bounds = new maplibregl.LngLatBounds();
-                let hasPoints = false;
-
-                features.forEach((f: any) => {
-                    const geom = f.geometry;
-                    if (!geom) return;
-
-                    const processCoords = (coords: any) => {
-                        if (!coords) return;
-                        if (typeof coords[0] === 'number') {
-                            bounds.extend(coords as [number, number]);
-                            hasPoints = true;
-                        } else if (Array.isArray(coords)) {
-                            coords.forEach(processCoords);
-                        }
-                    };
-                    processCoords(geom.coordinates);
-                });
-
-                if (hasPoints) {
-                    map.fitBounds(bounds, {
-                        padding: 50, // Reduced padding to make the boundary larger on screen
-                        duration: 500,
-                        maxZoom: 13 // Increased from 11 to 13 to allow closer inspection
-                    });
-                }
-            } catch (error) {
-                console.error("Error updating map source/bounds:", error);
-            }
-        }
-    }, [memoizedGeojson, styleLoaded]);
-
-
     if (!effectiveTileUrl) {
         return (
             <div style={{
@@ -233,15 +106,16 @@ export function ProtomapsMap({
             </div>
         );
     }
+
     return (
         <div style={{ width: "100%", height: "100%", position: "relative" }}>
             <Map
-                ref={mapRef}
+                ref={ref}
                 initialViewState={initialViewport}
                 mapStyle={effectiveTileUrl}
                 style={{ width: "100%", height: "100%" }}
                 onMove={handleMove}
-                onMouseMove={handleMouseMove}
+                onMouseMove={onMouseMove}
                 onData={onData}
                 onLoad={handleLoad}
                 onIdle={handleIdle}
@@ -251,51 +125,16 @@ export function ProtomapsMap({
                 maxBounds={mapConfig?.maxBounds}
                 cursor={cursor}
             >
-                {styleLoaded && (
-                    <Source
-                        id="boundary-data"
-                        type="geojson"
-                        data={memoizedGeojson || { type: 'FeatureCollection', features: [] }}
-                    >
-                        <Layer {...polygonLayer} />
-                    </Source>
-                )}
-
-                {styleLoaded && bubblesGeojson && (
-                    <Source id="bubble-data" type="geojson" data={bubblesGeojson}>
-                        <Layer {...bubbleFillLayer} />
-                        <Layer {...bubbleOutlineLayer} />
-                    </Source>
-                )}
-
-                {styleLoaded && previewGeojson && (
-                    <Source id="preview-data" type="geojson" data={previewGeojson}>
-                        <Layer
-                            id="preview-fill"
-                            type="fill"
-                            paint={{
-                                ...((bubbleFillLayer as any).paint),
-                                "fill-opacity": 0.4
-                            }}
-                        />
-                        <Layer
-                            id="preview-outline"
-                            type="line"
-                            paint={(bubbleOutlineLayer as any).paint}
-                        />
-                    </Source>
-                )}
+                {styleLoaded && children}
             </Map>
 
-            {/* Subtle Loading Overlay */}
             {isRendering && (
                 <div style={{
                     position: 'absolute',
                     bottom: '20px',
                     left: '50%',
                     transform: 'translateX(-50%)',
-                    background: 'rgba(255, 255, 255, 0.9)',
-                    backdropFilter: 'blur(4px)',
+                    background: 'white',
                     padding: '8px 16px',
                     borderRadius: '20px',
                     boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
@@ -304,9 +143,7 @@ export function ProtomapsMap({
                     alignItems: 'center',
                     gap: '10px',
                     fontSize: '12px',
-                    color: '#64748b',
-                    pointerEvents: 'none',
-                    transition: 'opacity 0.3s ease-in-out'
+                    color: '#64748b'
                 }}>
                     <div className="spinner-small" style={{
                         width: '12px',
@@ -321,4 +158,5 @@ export function ProtomapsMap({
             )}
         </div>
     );
-}
+});
+ProtomapsMap.displayName = 'ProtomapsMap';

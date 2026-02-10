@@ -197,7 +197,12 @@ export function BoundaryControl({
                         borderRadius: '4px'
                     }}>
                         {selectionMode === 'Bubbles'
-                            ? 'No previous bubble sessions found.'
+                            ? (
+                                <div>
+                                    No previous bubble sessions found.<br />
+                                    <strong>CTRL + CLICK</strong> on map to place new ones.
+                                </div>
+                            )
                             : `No boundary data found for type "${boundaryType}". Check back soon!`}
                     </div>
                 )}
