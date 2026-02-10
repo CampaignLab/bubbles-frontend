@@ -8,9 +8,10 @@ import { mapConfigurations } from "@/lib/config";
 import type { MapConfig } from "@/lib/config";
 import { circle } from "@turf/turf";
 import "maplibre-gl/dist/maplibre-gl.css";
+import maplibregl from "maplibre-gl";
 
 const polygonLayer: LayerProps = {
-    id: "polygon",
+    id: "boundary-polygon",
     type: "fill",
     paint: {
         "fill-color": "hsl(211, 100%, 36%)",
@@ -129,8 +130,11 @@ export function ProtomapsMap({ geojson, bubbles = [], onViewportChange, onTileEv
 
         if (memoizedGeojson) {
             try {
-                const maplibregl = (window as any).maplibregl;
-                if (!maplibregl) return;
+                // Imperatively update the source for immediate feedback
+                const source = map.getSource('boundary-data') as maplibregl.GeoJSONSource;
+                if (source) {
+                    source.setData(memoizedGeojson);
+                }
 
                 const features = memoizedGeojson.features || (memoizedGeojson.type === 'Feature' ? [memoizedGeojson] : []);
                 if (!features.length) return;
@@ -143,10 +147,11 @@ export function ProtomapsMap({ geojson, bubbles = [], onViewportChange, onTileEv
                     if (!geom) return;
 
                     const processCoords = (coords: any) => {
+                        if (!coords) return;
                         if (typeof coords[0] === 'number') {
                             bounds.extend(coords as [number, number]);
                             hasPoints = true;
-                        } else {
+                        } else if (Array.isArray(coords)) {
                             coords.forEach(processCoords);
                         }
                     };
@@ -160,7 +165,7 @@ export function ProtomapsMap({ geojson, bubbles = [], onViewportChange, onTileEv
                     });
                 }
             } catch (error) {
-                console.error("Error fitting bounds:", error);
+                console.error("Error updating map source/bounds:", error);
             }
         }
     }, [memoizedGeojson, styleLoaded]);
@@ -202,13 +207,17 @@ export function ProtomapsMap({ geojson, bubbles = [], onViewportChange, onTileEv
                 maxZoom={mapConfig?.maxZoom}
                 maxBounds={mapConfig?.maxBounds}
             >
-                {memoizedGeojson && (
-                    <Source id="boundary-data" type="geojson" data={memoizedGeojson}>
+                {styleLoaded && (
+                    <Source
+                        id="boundary-data"
+                        type="geojson"
+                        data={memoizedGeojson || { type: 'FeatureCollection', features: [] }}
+                    >
                         <Layer {...polygonLayer} />
                     </Source>
                 )}
 
-                {bubblesGeojson && (
+                {styleLoaded && bubblesGeojson && (
                     <Source id="bubble-data" type="geojson" data={bubblesGeojson}>
                         <Layer {...bubbleFillLayer} />
                         <Layer {...bubbleOutlineLayer} />

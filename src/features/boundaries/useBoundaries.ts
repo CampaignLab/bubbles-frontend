@@ -32,7 +32,7 @@ export function useBoundaries(type: 'ward' | 'constituency' = 'constituency') {
             .then(data => {
                 setGeojson(data);
                 setLoading(false);
-                addLog?.("Boundary Loaded", "success", `Displaying geometry for ${selectedId}`);
+                addLog?.("Boundary Received", "success", `Data parsed for ${selectedId} (${data.features?.length || 0} features)`);
             })
             .catch(err => {
                 console.error("Failed to load geojson:", err);
