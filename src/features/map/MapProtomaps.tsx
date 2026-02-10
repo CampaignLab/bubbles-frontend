@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useCallback, useEffect } from "react";
+import { useMemo, useRef, useCallback, useEffect, useState } from "react";
 import Map, { Source, Layer } from "react-map-gl/maplibre";
 import type { MapRef, ViewStateChangeEvent, LayerProps } from "react-map-gl/maplibre";
 // import type { MapDataEvent } from "maplibre-gl";
@@ -27,6 +27,7 @@ interface ProtomapsMapProps {
 
 export function ProtomapsMap({ geojson, onViewportChange, onTileEvent, mapConfig }: ProtomapsMapProps) {
     const mapRef = useRef<MapRef | null>(null);
+    const [isRendering, setIsRendering] = useState(false);
 
     const effectiveTileUrl = useMemo(() => {
         if (!mapConfig) return null;
@@ -66,11 +67,17 @@ export function ProtomapsMap({ geojson, onViewportChange, onTileEvent, mapConfig
         onViewportChange?.(evt.viewState);
     };
 
+    const handleLoading = useCallback(() => setIsRendering(true), []);
+    const handleIdle = useCallback(() => setIsRendering(false), []);
+
     const onData = useCallback((e: any) => {
+        if (e.dataType === 'source') {
+            handleLoading();
+        }
         if (e.dataType === 'source' && e.sourceDataType === 'metadata') {
             onTileEvent?.('MapLibre: Source Data Loaded', { sourceId: e.sourceId });
         }
-    }, [onTileEvent]);
+    }, [onTileEvent, handleLoading]);
 
     useEffect(() => {
         const map = mapRef.current?.getMap();
@@ -143,22 +150,59 @@ export function ProtomapsMap({ geojson, onViewportChange, onTileEvent, mapConfig
         );
     }
     return (
-        <Map
-            ref={mapRef}
-            initialViewState={initialViewport}
-            mapStyle={effectiveTileUrl}
-            style={{ width: "100%", height: "100%" }}
-            onMove={handleMove}
-            onData={onData}
-            minZoom={mapConfig?.minZoom}
-            maxZoom={mapConfig?.maxZoom}
-            maxBounds={mapConfig?.maxBounds}
-        >
-            {memoizedGeojson && (
-                <Source id="boundary-data" type="geojson" data={memoizedGeojson}>
-                    <Layer {...polygonLayer} />
-                </Source>
+        <div style={{ width: "100%", height: "100%", position: "relative" }}>
+            <Map
+                ref={mapRef}
+                initialViewState={initialViewport}
+                mapStyle={effectiveTileUrl}
+                style={{ width: "100%", height: "100%" }}
+                onMove={handleMove}
+                onData={onData}
+                onLoad={handleIdle}
+                onIdle={handleIdle}
+                minZoom={mapConfig?.minZoom}
+                maxZoom={mapConfig?.maxZoom}
+                maxBounds={mapConfig?.maxBounds}
+            >
+                {memoizedGeojson && (
+                    <Source id="boundary-data" type="geojson" data={memoizedGeojson}>
+                        <Layer {...polygonLayer} />
+                    </Source>
+                )}
+            </Map>
+
+            {/* Subtle Loading Overlay */}
+            {isRendering && (
+                <div style={{
+                    position: 'absolute',
+                    bottom: '20px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: 'rgba(255, 255, 255, 0.9)',
+                    backdropFilter: 'blur(4px)',
+                    padding: '8px 16px',
+                    borderRadius: '20px',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                    zIndex: 10,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    fontSize: '12px',
+                    color: '#64748b',
+                    pointerEvents: 'none',
+                    transition: 'opacity 0.3s ease-in-out'
+                }}>
+                    <div className="spinner-small" style={{
+                        width: '12px',
+                        height: '12px',
+                        border: '2px solid #e2e8f0',
+                        borderTopColor: '#3b82f6',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite'
+                    }}></div>
+                    Updating Map Tiles...
+                </div>
             )}
-        </Map>
+        </div>
     );
 }

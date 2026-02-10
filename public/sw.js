@@ -15,26 +15,41 @@ self.addEventListener('fetch', (event) => {
 
     // Only intercept Protomaps tile/style requests
     if (TILE_URL_PATTERN.test(request.url)) {
+        const isTile = url.pathname.endsWith('.mvt') || url.pathname.endsWith('.pbf');
+
         event.respondWith(
             caches.open(CACHE_NAME).then((cache) => {
-                return cache.match(request).then((response) => {
-                    // Return from cache if we have it (Cache-First)
-                    if (response) {
-                        console.log('✅ [SW Cache] Serving tile:', url.pathname);
-                        return response;
-                    }
-
-                    // Otherwise fetch and cache
-                    console.log('🌐 [SW Network] Fetching tile:', url.pathname);
-                    return fetch(request).then((networkResponse) => {
-                        // Only cache successful requests
-                        if (networkResponse.status === 200) {
-                            cache.put(request, networkResponse.clone());
+                return cache.match(request).then((cachedResponse) => {
+                    if (isTile) {
+                        // TILES: Cache-First (Save Credits)
+                        if (cachedResponse) {
+                            console.log('✅ [SW Cache-First] Tile:', url.pathname);
+                            return cachedResponse;
                         }
-                        return networkResponse;
-                    });
+                        return fetchAndCache(request, cache, '🌐 [SW Network] Tile:');
+                    } else {
+                        // STYLES/JSON: Stale-While-Revalidate (Speed)
+                        const fetchPromise = fetchAndCache(request, cache, '🔄 [SW Refresh] Style:');
+                        if (cachedResponse) {
+                            console.log('⚡ [SW Stale] Style:', url.pathname);
+                            return cachedResponse;
+                        }
+                        return fetchPromise;
+                    }
                 });
             })
         );
     }
 });
+
+function fetchAndCache(request, cache, logPrefix) {
+    return fetch(request).then((networkResponse) => {
+        if (networkResponse.status === 200) {
+            console.log(logPrefix, new URL(request.url).pathname);
+            cache.put(request, networkResponse.clone());
+        }
+        return networkResponse;
+    }).catch(err => {
+        console.error('❌ [SW Fetch Error]', err);
+    });
+}
