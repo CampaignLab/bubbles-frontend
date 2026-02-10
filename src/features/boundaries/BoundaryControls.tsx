@@ -1,17 +1,30 @@
-import { useState } from 'react';
-import { boundaries } from '@/lib/data';
 import { BoundaryItem } from './BoundaryItem';
+import type { Boundary } from '@/lib/data';
 
 interface BoundaryControlProps {
     selectedBoundaryId: string | null;
-    onSelect: (id: string) => void;
+    onSelect: (id: string | null) => void;
+    boundaryType: 'ward' | 'constituency';
+    onTypeChange: (type: 'ward' | 'constituency') => void;
+    allBoundaries: Boundary[];
+    selectionMode: 'Administrative' | 'Bubbles';
+    onModeChange: (mode: 'Administrative' | 'Bubbles') => void;
+    onExportCSV: () => void;
+    onSaveBubbles: () => void;
 }
 
-export function BoundaryControl({ selectedBoundaryId, onSelect }: BoundaryControlProps) {
-    const [mode, setMode] = useState<'Administrative' | 'Bubbles'>('Administrative');
-    const [subType, setSubType] = useState<'Constituency' | 'Ward'>('Constituency');
-
-    const selectedBoundary = boundaries.find(b => b.id === selectedBoundaryId);
+export function BoundaryControl({
+    selectedBoundaryId,
+    onSelect,
+    boundaryType,
+    onTypeChange,
+    allBoundaries,
+    selectionMode,
+    onModeChange,
+    onExportCSV,
+    onSaveBubbles
+}: BoundaryControlProps) {
+    const selectedBoundary = allBoundaries.find(b => b.id === selectedBoundaryId);
 
     // Dummy estimates (would eventually be linked to Meta API)
     const estimates = selectedBoundary ? {
@@ -44,13 +57,16 @@ export function BoundaryControl({ selectedBoundaryId, onSelect }: BoundaryContro
                     {['Administrative', 'Bubbles'].map(t => (
                         <button
                             key={t}
-                            onClick={() => setMode(t as any)}
+                            onClick={() => {
+                                onModeChange(t as any);
+                                if (t === 'Bubbles') onSelect(null);
+                            }}
                             style={{
                                 flex: 1,
                                 padding: '6px',
                                 fontSize: '11px',
-                                background: t === mode ? '#000' : '#eee',
-                                color: t === mode ? '#fff' : '#000',
+                                background: t === selectionMode ? '#000' : '#eee',
+                                color: t === selectionMode ? '#fff' : '#000',
                                 border: '1px solid #ccc',
                                 borderRadius: '4px',
                                 cursor: 'pointer'
@@ -63,55 +79,104 @@ export function BoundaryControl({ selectedBoundaryId, onSelect }: BoundaryContro
             </div>
 
             {/* Row 2: TYPE (Admin only) */}
-            {mode === 'Administrative' && (
+            {selectionMode === 'Administrative' && (
                 <div style={{ marginBottom: '20px' }}>
                     <div style={{ fontSize: '10px', color: '#888', marginBottom: '4px' }}>BOUNDARY TYPE</div>
                     <div style={{ display: 'flex', gap: '4px' }}>
-                        {['Constituency', 'Ward'].map(t => (
+                        {[
+                            { label: 'Constituency', value: 'constituency' },
+                            { label: 'Ward', value: 'ward' }
+                        ].map(t => (
                             <button
-                                key={t}
-                                onClick={() => setSubType(t as any)}
+                                key={t.value}
+                                onClick={() => {
+                                    onTypeChange(t.value as any);
+                                    onSelect(null);
+                                }}
                                 style={{
                                     flex: 1,
                                     padding: '6px',
                                     fontSize: '11px',
-                                    background: t === subType ? '#000' : '#eee',
-                                    color: t === subType ? '#fff' : '#000',
+                                    background: t.value === boundaryType ? '#000' : '#eee',
+                                    color: t.value === boundaryType ? '#fff' : '#000',
                                     border: '1px solid #ccc',
                                     borderRadius: '4px',
                                     cursor: 'pointer'
                                 }}
                             >
-                                {t}
+                                {t.label}
                             </button>
                         ))}
                     </div>
                 </div>
             )}
 
-            {mode === 'Bubbles' && (
-                <div style={{
-                    padding: '12px',
-                    background: '#fff9db',
-                    borderRadius: '4px',
-                    border: '1px solid #fcc419',
-                    fontSize: '12px',
-                    marginBottom: '20px'
-                }}>
-                    <strong>Bubble Mode:</strong> Click on the map to place inclusion/exclusion circles. (In development)
+            {selectionMode === 'Bubbles' && (
+                <div style={{ marginBottom: '20px' }}>
+                    <div style={{
+                        padding: '12px',
+                        background: '#fff9db',
+                        borderRadius: '4px',
+                        border: '1px solid #fcc419',
+                        fontSize: '11px',
+                        lineHeight: '1.4',
+                        marginBottom: '12px'
+                    }}>
+                        <strong>Bubble Mode:</strong> Click on the map to place inclusion points (Min 1km radius).
+                    </div>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                        <button
+                            onClick={onExportCSV}
+                            style={{
+                                flex: 1,
+                                padding: '8px',
+                                fontSize: '11px',
+                                background: '#3b82f6',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Export CSV
+                        </button>
+                        <button
+                            onClick={onSaveBubbles}
+                            style={{
+                                flex: 1,
+                                padding: '8px',
+                                fontSize: '11px',
+                                background: '#10b981',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Save Locally
+                        </button>
+                    </div>
                 </div>
             )}
 
-            <div style={{ fontSize: '10px', color: '#888', marginBottom: '4px' }}>AVAILABLE {subType.toUpperCase()}S</div>
+            <div style={{ fontSize: '10px', color: '#888', marginBottom: '4px' }}>
+                {selectionMode === 'Bubbles' ? 'PAST BOUNDARIES' : `AVAILABLE ${boundaryType.toUpperCase()}S`}
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-                {boundaries.map((b) => (
-                    <BoundaryItem
-                        key={b.id}
-                        name={b.name}
-                        isSelected={selectedBoundaryId === b.id}
-                        onClick={() => onSelect(b.id)}
-                    />
-                ))}
+                {allBoundaries.length > 0 ? (
+                    allBoundaries.map((b) => (
+                        <BoundaryItem
+                            key={b.id}
+                            name={b.name}
+                            isSelected={selectedBoundaryId === b.id}
+                            onClick={() => onSelect(b.id)}
+                        />
+                    ))
+                ) : (
+                    <div style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', padding: '10px' }}>
+                        No data found in /data/{selectionMode === 'Bubbles' ? 'bubbles' : boundaryType === 'ward' ? 'ward' : 'const'}
+                    </div>
+                )}
             </div>
 
             {/* PRE-ANALYTICS METRICS */}

@@ -5,9 +5,10 @@ import { useLogs } from "@/context/logContext";
 
 interface AnalyticsControlsProps {
     activeBoundaryId: string | null;
+    bubbles: any[];
 }
 
-export function AnalyticsControls({ activeBoundaryId }: AnalyticsControlsProps) {
+export function AnalyticsControls({ activeBoundaryId, bubbles }: AnalyticsControlsProps) {
     const { isRunning, result, runAnalytics } = useAnalytics();
     const { addLog } = useLogs() || {};
     const [isUploading, setIsUploading] = useState(false);
@@ -67,8 +68,8 @@ export function AnalyticsControls({ activeBoundaryId }: AnalyticsControlsProps) 
             <div style={{ marginBottom: '20px' }}>
                 <div style={{ fontSize: '10px', color: '#888', marginBottom: '4px' }}>STEP 1: ANALYTICS</div>
                 <button
-                    onClick={() => runAnalytics(activeBoundaryId)}
-                    disabled={isRunning || !activeBoundaryId}
+                    onClick={() => runAnalytics(activeBoundaryId, bubbles)}
+                    disabled={isRunning || (!activeBoundaryId && bubbles.length === 0)}
                     style={{
                         width: '100%',
                         padding: '12px',
@@ -82,7 +83,11 @@ export function AnalyticsControls({ activeBoundaryId }: AnalyticsControlsProps) 
                 >
                     {isRunning ? 'CALCULATING BUBBLES...' : 'GENERATE AUDIENCE DATA'}
                 </button>
-                {!activeBoundaryId && <div style={{ fontSize: '10px', color: 'red', marginTop: '4px' }}>Please select a boundary on the left first.</div>}
+                {!activeBoundaryId && bubbles.length === 0 && (
+                    <div style={{ fontSize: '10px', color: '#f59e0b', marginTop: '4px' }}>
+                        Select a boundary or draw circles on the map.
+                    </div>
+                )}
             </div>
 
             {/* STEP 2: RESULTS PREVIEW */}

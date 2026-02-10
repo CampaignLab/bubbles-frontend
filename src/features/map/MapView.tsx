@@ -6,6 +6,8 @@ import { defaultMapConfig, type MapConfig } from "@/lib/config";
 interface MapViewProps {
     config?: MapConfig;
     geojson?: any;
+    bubbles?: any[];
+    onMapClick?: (lng: number, lat: number) => void;
     className?: string;
 }
 
@@ -14,7 +16,13 @@ interface MapViewProps {
  * Decoupled from any specific business logic like "Boundaries".
  * Handles its own viewport and tile event logging.
  */
-export default function MapView({ config = defaultMapConfig, geojson, className }: MapViewProps) {
+export default function MapView({
+    config = defaultMapConfig,
+    geojson,
+    bubbles = [],
+    onMapClick,
+    className
+}: MapViewProps) {
     const logContext = useLogs();
 
     const handleViewport = useCallback((v: any) => {
@@ -36,8 +44,10 @@ export default function MapView({ config = defaultMapConfig, geojson, className 
             <ProtomapsMap
                 mapConfig={config}
                 geojson={geojson}
+                bubbles={bubbles}
                 onViewportChange={handleViewport}
                 onTileEvent={handleTileEvent}
+                onMapClick={onMapClick}
             />
         </div>
     );

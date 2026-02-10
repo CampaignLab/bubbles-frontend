@@ -6,26 +6,46 @@ import type { MapRef, ViewStateChangeEvent, LayerProps } from "react-map-gl/mapl
 // import type { MapDataEvent } from "maplibre-gl";
 import { mapConfigurations } from "@/lib/config";
 import type { MapConfig } from "@/lib/config";
+import { circle } from "@turf/turf";
 import "maplibre-gl/dist/maplibre-gl.css";
-
 
 const polygonLayer: LayerProps = {
     id: "polygon",
     type: "fill",
     paint: {
         "fill-color": "hsl(211, 100%, 36%)",
-        "fill-opacity": 0.3,
+        "fill-opacity": 0.2,
+    },
+};
+
+const bubbleFillLayer: LayerProps = {
+    id: "bubble-fill",
+    type: "fill",
+    paint: {
+        "fill-color": ["case", ["==", ["get", "type"], "inclusion"], "#22c55e", "#ef4444"],
+        "fill-opacity": 0.2,
+    },
+};
+
+const bubbleOutlineLayer: LayerProps = {
+    id: "bubble-outline",
+    type: "line",
+    paint: {
+        "line-color": ["case", ["==", ["get", "type"], "inclusion"], "#16a34a", "#dc2626"],
+        "line-width": 2,
     },
 };
 
 interface ProtomapsMapProps {
     geojson?: any;
+    bubbles?: any[];
     onViewportChange?: (viewport: { latitude: number, longitude: number, zoom: number, bearing: number, pitch: number }) => void;
     onTileEvent?: (eventName: string, data: any) => void;
+    onMapClick?: (lng: number, lat: number) => void;
     mapConfig: MapConfig | null;
 }
 
-export function ProtomapsMap({ geojson, onViewportChange, onTileEvent, mapConfig }: ProtomapsMapProps) {
+export function ProtomapsMap({ geojson, bubbles = [], onViewportChange, onTileEvent, onMapClick, mapConfig }: ProtomapsMapProps) {
     const mapRef = useRef<MapRef | null>(null);
     const [isRendering, setIsRendering] = useState(false);
 
@@ -62,10 +82,27 @@ export function ProtomapsMap({ geojson, onViewportChange, onTileEvent, mapConfig
         return geojson;
     }, [geojson]);
 
+    // Convert bubble points to polygons for rendering
+    const bubblesGeojson = useMemo(() => {
+        if (!bubbles.length) return null;
+        return {
+            type: 'FeatureCollection' as const,
+            features: bubbles.map(b => circle([b.lng, b.lat], b.radiusKm, {
+                units: 'kilometers',
+                properties: { ...b }
+            }))
+        };
+    }, [bubbles]);
 
     const handleMove = (evt: ViewStateChangeEvent) => {
         onViewportChange?.(evt.viewState);
     };
+
+    const handleClick = useCallback((e: any) => {
+        if (onMapClick) {
+            onMapClick(e.lngLat.lng, e.lngLat.lat);
+        }
+    }, [onMapClick]);
 
     const handleLoading = useCallback(() => setIsRendering(true), []);
     const handleIdle = useCallback(() => setIsRendering(false), []);
@@ -160,6 +197,7 @@ export function ProtomapsMap({ geojson, onViewportChange, onTileEvent, mapConfig
                 onData={onData}
                 onLoad={handleIdle}
                 onIdle={handleIdle}
+                onClick={handleClick}
                 minZoom={mapConfig?.minZoom}
                 maxZoom={mapConfig?.maxZoom}
                 maxBounds={mapConfig?.maxBounds}
@@ -167,6 +205,13 @@ export function ProtomapsMap({ geojson, onViewportChange, onTileEvent, mapConfig
                 {memoizedGeojson && (
                     <Source id="boundary-data" type="geojson" data={memoizedGeojson}>
                         <Layer {...polygonLayer} />
+                    </Source>
+                )}
+
+                {bubblesGeojson && (
+                    <Source id="bubble-data" type="geojson" data={bubblesGeojson}>
+                        <Layer {...bubbleFillLayer} />
+                        <Layer {...bubbleOutlineLayer} />
                     </Source>
                 )}
             </Map>
