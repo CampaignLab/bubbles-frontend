@@ -108,8 +108,8 @@ export function AnalyticsControls({
                     {isRunning ? 'CALCULATING BUBBLES...' : (genError ? 'DATA NOT FOUND (404)' : 'GENERATE AUDIENCE DATA')}
                 </button>
                 {!activeBoundaryId && bubbles.length === 0 && (
-                    <div style={{ fontSize: '10px', color: '#dc2626', marginTop: '6px', fontWeight: 600 }}>
-                        ⚠ Select a boundary or draw circles on the map.
+                    <div style={{ fontSize: '10px', color: '#f59e0b', marginTop: '4px' }}>
+                        Please select a boundary or draw circles first.
                     </div>
                 )}
             </div>

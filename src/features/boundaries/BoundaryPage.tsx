@@ -47,7 +47,8 @@ export default function BoundaryPage() {
         saveBubbles,
         loadBubble,
         deleteSession,
-        loadBubblesFromCSV
+        loadBubblesFromCSV,
+        clearBubbles
     } = useBubbles();
 
     const lastZoomId = useRef<string | null>(null);
@@ -162,6 +163,7 @@ export default function BoundaryPage() {
     const handleSelect = (id: string | null) => {
         if (selectionMode === 'Administrative') {
             setSelectedId(id);
+            clearBubbles();
         } else if (id) {
             loadBubble(id);
         }

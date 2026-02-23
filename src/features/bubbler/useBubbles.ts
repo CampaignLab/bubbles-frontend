@@ -220,6 +220,13 @@ export function useBubbles() {
         }
     }, [addLog]);
 
+    const clearBubbles = useCallback(() => {
+        setBubbles([]);
+        setActiveSessionId(null);
+        setActiveSessionName(null);
+        lastRequestRef.current = null;
+    }, []);
+
     return {
         bubbles,
         availableBubbles,
@@ -236,6 +243,7 @@ export function useBubbles() {
         loadBubble,
         deleteSession,
         generateAudienceCSV,
-        loadBubblesFromCSV
+        loadBubblesFromCSV,
+        clearBubbles
     };
 }

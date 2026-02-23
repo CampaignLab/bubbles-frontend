@@ -11,112 +11,121 @@ const polygonLayer: LayerProps = {
     },
 };
 
+const boundaryOutlineLayer: LayerProps = {
+    id: "boundary-outline",
+    type: "line",
+    paint: {
+        "line-color": "hsl(211, 100%, 36%)",
+        "line-width": 3,
+        "line-opacity": 0.8
+    }
+};
+
 const pointLayer: LayerProps = {
-    id: "boundary-point",
+    id: "boundary-center-point",
     type: "circle",
     paint: {
         "circle-radius": 6,
         "circle-color": "hsl(211, 100%, 36%)",
         "circle-stroke-width": 2,
-        "circle-stroke-color": "#fff"
+        "circle-stroke-color": "#fff",
+        "circle-opacity": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            8, 0.8, // Fully visible when zoomed far out
+            10, 0    // Completely gone by the time the boundary fills the screen
+        ],
+        "circle-stroke-opacity": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            8, 1,
+            10, 0
+        ]
     }
 };
 
-interface BoundaryLayerProps {
-    geojson: any;
-}
-
-export function BoundaryLayer({ geojson }: BoundaryLayerProps) {
-    // Check if geometry is in valid WGS84 range
+/**
+ * Renders the administrative boundary polygon.
+ * Handles BNG to WGS84 projection for mock constituency data.
+ */
+export function BoundaryPolygon({ geojson }: { geojson: any }) {
     const isWGS84 = useMemo(() => {
         if (!geojson?.features?.[0]?.geometry?.coordinates) return true;
         const coords = geojson.features[0].geometry.coordinates;
-        // Check first coordinate of first polygon
         let first;
-        if (Array.isArray(coords[0][0][0])) first = coords[0][0][0]; // MultiPolygon
-        else if (Array.isArray(coords[0][0])) first = coords[0][0]; // Polygon
+        if (Array.isArray(coords[0][0][0])) first = coords[0][0][0];
+        else if (Array.isArray(coords[0][0])) first = coords[0][0];
         else first = coords[0];
-
         if (!first) return true;
         return Math.abs(first[0]) <= 180 && Math.abs(first[1]) <= 90;
     }, [geojson]);
 
-    // Fallback source if projected
-    const processedGeojson = useMemo(() => {
-        if (!geojson) return null;
-        if (isWGS84) return geojson;
-
-        // Clone to avoid mutating original
+    const processed = useMemo(() => {
+        if (!geojson || isWGS84) return geojson;
         const cloned = JSON.parse(JSON.stringify(geojson));
-
-        // Helper to transform [East, North] -> [Lng, Lat] 
-        // This is a naive approximation for the mock data context
-        // Real BNG to WGS84 usually requires a complex Helmert transform or proj4
-        // However, for the provided data range (Coventry approx 430000, 280000):
-        // PCON24NM: "Coventry North West", BNG_E: 430294.0, BNG_N: 281733.0, LAT: 52.43276, LONG: -1.55584
-        // We can use the props.LAT/props.LONG and the BNG offset if we had a full library,
-        // but since this is a mock environment, we'll implement a static offset transform 
-        // based on the known center points in the file.
         const props = cloned.features[0].properties;
-        const bngE = props.BNG_E;
-        const bngN = props.BNG_N;
-        const lat = props.LAT;
-        const lng = props.LONG;
+        const bngE = props.BNG_E, bngN = props.BNG_N, lat = props.LAT, lng = props.LONG;
 
         if (bngE && bngN && lat && lng) {
-            const transform = (coord: number[]) => {
-                const de = coord[0] - bngE;
-                const dn = coord[1] - bngN;
-                // Constants for Coventry roughly: 1 deg Lat ~ 111km, 1 deg Lng ~ 68km
-                // BNG units are meters.
-                return [
-                    lng + (de / 68000),
-                    lat + (dn / 111000)
-                ];
-            };
-
+            const transform = (coord: number[]) => [
+                lng + ((coord[0] - bngE) / 68000),
+                lat + ((coord[1] - bngN) / 111000)
+            ];
             cloned.features.forEach((f: any) => {
                 if (f.geometry.type === 'MultiPolygon') {
-                    f.geometry.coordinates = f.geometry.coordinates.map((poly: any) =>
-                        poly.map((ring: any) => ring.map(transform))
-                    );
+                    f.geometry.coordinates = f.geometry.coordinates.map((p: any) => p.map((r: any) => r.map(transform)));
                 } else if (f.geometry.type === 'Polygon') {
-                    f.geometry.coordinates = f.geometry.coordinates.map((ring: any) => ring.map(transform));
+                    f.geometry.coordinates = f.geometry.coordinates.map((r: any) => r.map(transform));
                 }
             });
             return cloned;
         }
-
-        // Final fallback: Single point
-        if (props.LONG && props.LAT) {
-            return {
-                type: 'FeatureCollection',
-                features: [{
-                    type: 'Feature',
-                    properties: props,
-                    geometry: {
-                        type: 'Point',
-                        coordinates: [props.LONG, props.LAT]
-                    }
-                }]
-            };
-        }
-        return null;
+        return geojson;
     }, [geojson, isWGS84]);
 
-    if (!processedGeojson) return null;
-
+    if (!processed) return null;
     return (
-        <Source
-            id="boundary-data"
-            type="geojson"
-            data={processedGeojson}
-        >
-            {isWGS84 ? (
-                <Layer {...polygonLayer} />
-            ) : (
-                <Layer {...pointLayer} />
-            )}
+        <Source id="boundary-polygon-source" type="geojson" data={processed}>
+            <Layer {...polygonLayer} />
+            <Layer {...boundaryOutlineLayer} />
         </Source>
+    );
+}
+
+/**
+ * Renders a persistent indicator at the geographic center of a boundary.
+ */
+export function BoundaryCenterIndicator({ geojson }: { geojson: any }) {
+    const pointData = useMemo(() => {
+        if (!geojson?.features?.[0]?.properties) return null;
+        const props = geojson.features[0].properties;
+        if (!props.LONG || !props.LAT) return null;
+        return {
+            type: 'FeatureCollection' as const,
+            features: [{
+                type: 'Feature' as const,
+                properties: props,
+                geometry: { type: 'Point' as const, coordinates: [props.LONG, props.LAT] }
+            }]
+        };
+    }, [geojson]);
+
+    if (!pointData) return null;
+    return (
+        <Source id="boundary-point-source" type="geojson" data={pointData}>
+            <Layer {...pointLayer} />
+        </Source>
+    );
+}
+
+export function BoundaryLayer({ geojson }: { geojson: any }) {
+    if (!geojson) return null;
+    return (
+        <>
+            <BoundaryPolygon geojson={geojson} />
+            <BoundaryCenterIndicator geojson={geojson} />
+        </>
     );
 }

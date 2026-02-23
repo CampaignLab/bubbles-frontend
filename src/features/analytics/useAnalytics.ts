@@ -29,12 +29,7 @@ export function useAnalytics() {
             let finalBubbles = [];
             let csv = "";
 
-            if (customBubbles.length > 0) {
-                // Use drawn bubbles
-                finalBubbles = customBubbles;
-                csv = "Type,Longitude,Latitude,RadiusKM\n" +
-                    customBubbles.map(b => `${b.type},${b.lng},${b.lat},${b.radiusKm}`).join("\n");
-            } else if (boundaryId) {
+            if (boundaryId) {
                 // Fetch pre-calculated CSV from API
                 csv = await boundaryService.getAudienceCSV(type, boundaryId);
 
@@ -71,6 +66,11 @@ export function useAnalytics() {
                         return { type: t, lng: lngNum, lat: latNum, radiusKm: radNum };
                     }).filter(b => b !== null);
                 }
+            } else if (customBubbles.length > 0) {
+                // Use drawn bubbles
+                finalBubbles = customBubbles;
+                csv = "Type,Longitude,Latitude,RadiusKM\n" +
+                    customBubbles.map(b => `${b.type},${b.lng},${b.lat},${b.radiusKm}`).join("\n");
             }
 
             const resultPayload = {
