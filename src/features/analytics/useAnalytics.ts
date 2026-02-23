@@ -29,11 +29,18 @@ export function useAnalytics() {
             let finalBubbles = [];
             let csv = "";
 
-            if (boundaryId) {
-                // Fetch pre-calculated CSV from API
+            if (customBubbles.length > 0) {
+                // Priority: Use local bubble session (initial load OR user-adjusted)
+                finalBubbles = customBubbles;
+                csv = "bubble_type,coordinates,radius\n" +
+                    customBubbles.map(b => {
+                        const coords = `"(${b.lat}, ${b.lng}) +${b.radiusKm}km"`;
+                        return `${b.type},${coords},${b.radiusKm}`;
+                    }).join("\n");
+            } else if (boundaryId) {
+                // Fallback: Fetch official pre-calculated CSV from API
                 csv = await boundaryService.getAudienceCSV(type, boundaryId);
 
-                // Temporary simplified parsing for preview bubbles
                 const lines = csv.trim().split('\n');
                 if (lines.length > 1) {
                     finalBubbles = lines.slice(1).map((line) => {
@@ -66,11 +73,6 @@ export function useAnalytics() {
                         return { type: t, lng: lngNum, lat: latNum, radiusKm: radNum };
                     }).filter(b => b !== null);
                 }
-            } else if (customBubbles.length > 0) {
-                // Use drawn bubbles
-                finalBubbles = customBubbles;
-                csv = "Type,Longitude,Latitude,RadiusKM\n" +
-                    customBubbles.map(b => `${b.type},${b.lng},${b.lat},${b.radiusKm}`).join("\n");
             }
 
             const resultPayload = {

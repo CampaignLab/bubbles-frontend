@@ -6,13 +6,15 @@ import { useLogs } from "@/context/logContext";
 interface AnalyticsControlsProps {
     activeBoundaryId: string | null;
     bubbles: any[];
-    boundaryType?: 'ward' | 'constituency'; // Added
-    onGenerated?: (csv: string, id: string) => void; // Added
+    selectionMode: 'Administrative' | 'Bubbles';
+    boundaryType?: 'ward' | 'constituency';
+    onGenerated?: (csv: string, id: string) => void;
 }
 
 export function AnalyticsControls({
     activeBoundaryId,
     bubbles,
+    selectionMode,
     boundaryType = 'ward',
     onGenerated
 }: AnalyticsControlsProps) {
@@ -102,10 +104,15 @@ export function AnalyticsControls({
                         borderRadius: '4px',
                         cursor: isRunning ? 'not-allowed' : 'pointer',
                         fontWeight: 'bold',
-                        transition: 'background 0.2s'
+                        transition: 'background 0.2s',
+                        fontSize: '11px'
                     }}
                 >
-                    {isRunning ? 'CALCULATING BUBBLES...' : (genError ? 'DATA NOT FOUND (404)' : 'GENERATE AUDIENCE DATA')}
+                    {isRunning ? 'CALCULATING BUBBLES...' : (
+                        genError ? 'DATA NOT FOUND (404)' : (
+                            selectionMode === 'Administrative' ? 'GENERATE AUDIENCE DATA' : 'EXPORT BUBBLE AUDIENCE'
+                        )
+                    )}
                 </button>
                 {!activeBoundaryId && bubbles.length === 0 && (
                     <div style={{ fontSize: '10px', color: '#f59e0b', marginTop: '4px' }}>

@@ -281,6 +281,7 @@ export default function BoundaryPage() {
             <AnalyticsControls
                 activeBoundaryId={selectedId}
                 bubbles={bubbles}
+                selectionMode={selectionMode}
                 boundaryType={boundaryType}
                 onGenerated={useCallback((csv: string, id: string) => {
                     loadBubblesFromCSV(csv, id);

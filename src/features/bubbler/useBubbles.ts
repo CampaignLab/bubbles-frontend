@@ -149,15 +149,19 @@ export function useBubbles() {
     };
 
     const generateAudienceCSV = () => {
-        const header = "Type,Longitude,Latitude,RadiusKM\n";
-        const rows = bubbles.map(b => `${b.type},${b.lng},${b.lat},${b.radiusKm}`).join("\n");
+        const header = "bubble_type,coordinates,radius\n";
+        const rows = bubbles.map(b => {
+            const coords = `"(${b.lat}, ${b.lng}) +${b.radiusKm}km"`;
+            return `${b.type},${coords},${b.radiusKm}`;
+        }).join("\n");
         const blob = new Blob([header + rows], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `audience-${Date.now()}.csv`;
+        const filename = activeSessionId ? `audience-${activeSessionId}.csv` : `audience-${Date.now()}.csv`;
+        a.download = filename;
         a.click();
-        addLog?.("CSV Generated", "success", "Audience export complete.");
+        addLog?.("CSV Exported", "success", "Standardized audience format generated.");
     };
 
     const loadBubblesFromCSV = useCallback((csvText: string, sessionId: string) => {
