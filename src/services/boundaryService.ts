@@ -159,5 +159,15 @@ export const boundaryService = {
                 console.error("Dev-sync delete failed:", e);
             }
         }
+    },
+
+    /**
+     * Fetches the pre-calculated audience CSV for a given boundary.
+     */
+    async getAudienceCSV(type: 'ward' | 'constituency', id: string): Promise<string> {
+        const pathType = type === 'ward' ? 'ward' : 'const';
+        const response = await fetch(`${API_BASE}/bubbles/${pathType}/${encodeURIComponent(id)}.csv`);
+        if (!response.ok) throw new Error("Audience data not available for this boundary.");
+        return await response.text();
     }
 };

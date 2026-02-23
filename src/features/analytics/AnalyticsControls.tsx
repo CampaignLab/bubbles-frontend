@@ -6,12 +6,21 @@ import { useLogs } from "@/context/logContext";
 interface AnalyticsControlsProps {
     activeBoundaryId: string | null;
     bubbles: any[];
+    boundaryType?: 'ward' | 'constituency'; // Added
+    onGenerated?: (csv: string, id: string) => void; // Added
 }
 
-export function AnalyticsControls({ activeBoundaryId, bubbles }: AnalyticsControlsProps) {
+export function AnalyticsControls({
+    activeBoundaryId,
+    bubbles,
+    boundaryType = 'ward',
+    onGenerated
+}: AnalyticsControlsProps) {
     const { isRunning, result, runAnalytics } = useAnalytics();
     const { addLog } = useLogs() || {};
     const [isUploading, setIsUploading] = useState(false);
+
+    const [genError, setGenError] = useState(false);
 
     const handleUpload = async (platform: string) => {
         setIsUploading(true);
@@ -68,24 +77,39 @@ export function AnalyticsControls({ activeBoundaryId, bubbles }: AnalyticsContro
             <div style={{ marginBottom: '20px' }}>
                 <div style={{ fontSize: '10px', color: '#888', marginBottom: '4px' }}>STEP 1: ANALYTICS</div>
                 <button
-                    onClick={() => runAnalytics(activeBoundaryId, bubbles)}
-                    disabled={isRunning || (!activeBoundaryId && bubbles.length === 0)}
+                    onClick={async () => {
+                        setGenError(false);
+                        if (!activeBoundaryId && bubbles.length === 0) {
+                            addLog?.("Selection Required", "warning", "Please select a boundary or draw circles first.");
+                            return;
+                        }
+                        const res = await runAnalytics(activeBoundaryId, bubbles, boundaryType);
+                        if (res?.csv_preview && onGenerated) {
+                            onGenerated(res.csv_preview, activeBoundaryId || 'custom-session');
+                        } else if (!res) {
+                            setGenError(true);
+                            setTimeout(() => setGenError(false), 2000);
+                            addLog?.("Generation Failed", "error", "Could not retrieve audience data for this boundary.");
+                        }
+                    }}
+                    disabled={isRunning}
                     style={{
                         width: '100%',
                         padding: '12px',
-                        background: (isRunning || !activeBoundaryId) ? '#ccc' : '#2563eb',
+                        background: isRunning ? '#ccc' : (genError ? '#dc2626' : '#2563eb'),
                         color: '#fff',
                         border: 'none',
                         borderRadius: '4px',
-                        cursor: (isRunning || !activeBoundaryId) ? 'not-allowed' : 'pointer',
-                        fontWeight: 'bold'
+                        cursor: isRunning ? 'not-allowed' : 'pointer',
+                        fontWeight: 'bold',
+                        transition: 'background 0.2s'
                     }}
                 >
-                    {isRunning ? 'CALCULATING BUBBLES...' : 'GENERATE AUDIENCE DATA'}
+                    {isRunning ? 'CALCULATING BUBBLES...' : (genError ? 'DATA NOT FOUND (404)' : 'GENERATE AUDIENCE DATA')}
                 </button>
                 {!activeBoundaryId && bubbles.length === 0 && (
-                    <div style={{ fontSize: '10px', color: '#f59e0b', marginTop: '4px' }}>
-                        Select a boundary or draw circles on the map.
+                    <div style={{ fontSize: '10px', color: '#dc2626', marginTop: '6px', fontWeight: 600 }}>
+                        ⚠ Select a boundary or draw circles on the map.
                     </div>
                 )}
             </div>

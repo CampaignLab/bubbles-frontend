@@ -226,41 +226,54 @@ export function BoundaryControl({
                 </div>
             )}
 
-            {/* SECTION: SELECTED BOUNDARY / SESSION */}
-            <div style={{ marginBottom: '20px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    SELECTED {selectionMode === 'Bubbles' ? 'SESSION' : boundaryType.toUpperCase()}
+            {/* SECTION: ACTIVE CONTEXT (Pinned) */}
+            <div style={{ marginBottom: '20px', borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Active Context
                 </div>
-                {(selectionMode === 'Administrative' && selectedBoundaryId) || (selectionMode === 'Bubbles' && activeSessionId) ? (
-                    selectionMode === 'Bubbles' ? (
-                        <BubblerItem
-                            name={activeSessionName || activeSessionId || 'Draft Session'}
-                            isSelected={true}
-                            onClick={() => { }}
-                            onDelete={(e) => { e.stopPropagation(); onDeleteSession(activeSessionId!); }}
-                            onRename={() => { }}
-                            showRename={false}
-                        />
-                    ) : (
-                        <BoundaryItem
-                            name={allBoundaries.find(b => b.id === selectedBoundaryId)?.name || 'Unknown'}
-                            isSelected={true}
-                            onClick={() => { }}
-                        />
-                    )
-                ) : (
-                    <div style={{
-                        padding: '12px',
-                        border: '1px dashed #cbd5e1',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        color: '#94a3b8',
-                        textAlign: 'center',
-                        background: '#f8fafc'
-                    }}>
-                        None Selected
-                    </div>
-                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {/* Always show selected boundary if exists */}
+                    {selectedBoundaryId && (
+                        <div style={{ opacity: selectionMode === 'Bubbles' ? 0.7 : 1 }}>
+                            <div style={{ fontSize: '9px', color: '#94a3b8', marginBottom: '2px', fontWeight: 600 }}>BOUNDARY</div>
+                            <BoundaryItem
+                                name={allBoundaries.find(b => b.id === selectedBoundaryId)?.name || 'Selected Boundary'}
+                                isSelected={selectionMode === 'Administrative'}
+                                onClick={() => onModeChange('Administrative')}
+                            />
+                        </div>
+                    )}
+
+                    {/* Show Session if in Bubbles mode and active */}
+                    {(activeSessionId && selectionMode === 'Bubbles') && (
+                        <div>
+                            <div style={{ fontSize: '9px', color: '#94a3b8', marginBottom: '2px', fontWeight: 600 }}>AUDIENCE SESSION</div>
+                            <BubblerItem
+                                name={activeSessionName || activeSessionId || 'Draft Session'}
+                                isSelected={true}
+                                onClick={() => { }}
+                                onDelete={(e) => { e.stopPropagation(); onDeleteSession(activeSessionId!); }}
+                                onRename={() => { }}
+                                showRename={false}
+                            />
+                        </div>
+                    )}
+
+                    {!selectedBoundaryId && !activeSessionId && (
+                        <div style={{
+                            padding: '12px',
+                            border: '1px dashed #cbd5e1',
+                            borderRadius: '8px',
+                            fontSize: '11px',
+                            color: '#94a3b8',
+                            textAlign: 'center',
+                            background: '#f8fafc'
+                        }}>
+                            Nothing selected
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Bubber Actions Group */}

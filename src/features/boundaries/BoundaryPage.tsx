@@ -46,7 +46,8 @@ export default function BoundaryPage() {
         generateAudienceCSV,
         saveBubbles,
         loadBubble,
-        deleteSession
+        deleteSession,
+        loadBubblesFromCSV
     } = useBubbles();
 
     const lastZoomId = useRef<string | null>(null);
@@ -97,16 +98,18 @@ export default function BoundaryPage() {
         const currentId = selectionMode === 'Administrative' ? selectedId : activeSessionId;
         if (!currentId) return;
 
+        const currentZoomKey = `${selectionMode}-${currentId}`;
+
         // Data Readiness Check: Does data in memory match active selection?
         const isDataReady = (selectionMode === 'Administrative')
             ? (geojson && geojsonId === selectedId)
             : (bubbles.length > 0 && activeSessionId === currentId);
 
-        if (!isDataReady || lastZoomId.current === currentId) return;
+        if (!isDataReady || lastZoomId.current === currentZoomKey) return;
 
         // Visual check: Was this zoom triggered by a manual click?
         if (skipNextZoom.current) {
-            lastZoomId.current = currentId;
+            lastZoomId.current = currentZoomKey;
             skipNextZoom.current = false;
             return;
         }
@@ -120,32 +123,41 @@ export default function BoundaryPage() {
         }
 
         if (bbox && bbox[0] !== Infinity && bbox[0] !== -Infinity) {
-            const bounds = new maplibregl.LngLatBounds([bbox[0], bbox[1]], [bbox[2], bbox[3]]);
-            lastZoomId.current = currentId;
+            // Safety check for valid coordinates [minLng, minLat, maxLng, maxLat]
+            const isValid = bbox.every(v => typeof v === 'number' && !isNaN(v)) &&
+                bbox[1] >= -90 && bbox[1] <= 90 &&
+                bbox[3] >= -90 && bbox[3] <= 90;
 
-            const diameterKm = turf.distance([bbox[0], bbox[1]], [bbox[2], bbox[3]], { units: 'kilometers' });
+            if (isValid) {
+                const bounds = new maplibregl.LngLatBounds([bbox[0], bbox[1]], [bbox[2], bbox[3]]);
+                lastZoomId.current = currentZoomKey;
 
-            // Comfortable Zoom Thresholds
-            let dynamicMaxZoom = 12;
-            if (diameterKm < 1.0) dynamicMaxZoom = 14.5;
-            else if (diameterKm < 2.5) dynamicMaxZoom = 13.5;
-            else if (diameterKm > 20) dynamicMaxZoom = 10.5;
-            else if (diameterKm > 10) dynamicMaxZoom = 11.5;
+                const diameterKm = turf.distance([bbox[0], bbox[1]], [bbox[2], bbox[3]], { units: 'kilometers' });
 
-            map.fitBounds(bounds, {
-                padding: 100,
-                duration: 500,
-                maxZoom: dynamicMaxZoom
-            });
+                // Comfortable Zoom Thresholds
+                let dynamicMaxZoom = 12;
+                if (diameterKm < 1.0) dynamicMaxZoom = 14.5;
+                else if (diameterKm < 2.5) dynamicMaxZoom = 13.5;
+                else if (diameterKm > 20) dynamicMaxZoom = 10.5;
+                else if (diameterKm > 10) dynamicMaxZoom = 11.5;
+
+                map.fitBounds(bounds, {
+                    padding: 100,
+                    duration: 500,
+                    maxZoom: dynamicMaxZoom
+                });
+            } else if (selectionMode === 'Administrative' && geojson?.features?.[0]?.properties?.LONG) {
+                // Fallback for datasets encoded in BNG projection (epsg:27700) where turf returns invalid WGS84 bbox
+                lastZoomId.current = currentZoomKey;
+                const props = geojson.features[0].properties;
+                map.flyTo({
+                    center: [props.LONG, props.LAT],
+                    zoom: 11.5,
+                    duration: 500
+                });
+            }
         }
     }, [geojson, geojsonId, bubbles, selectionMode, selectedId, activeSessionId]);
-
-    // Load bubbles when administrative boundary is selected
-    useEffect(() => {
-        if (selectionMode === 'Administrative' && selectedId) {
-            loadBubble(selectedId);
-        }
-    }, [selectedId, selectionMode, loadBubble]);
 
     const handleSelect = (id: string | null) => {
         if (selectionMode === 'Administrative') {
@@ -230,7 +242,7 @@ export default function BoundaryPage() {
                         dragPan={isCtrlHeld ? { mouseButton: 'right' } : true}
                         scrollZoom={isCtrlHeld ? false : true}
                     >
-                        <BoundaryLayer geojson={selectionMode === 'Administrative' ? geojson : null} />
+                        <BoundaryLayer geojson={geojson} />
                         <BubblerLayer
                             bubbles={selectionMode === 'Bubbles' ? bubbles : []}
                             drawSettings={drawSettings}
@@ -264,7 +276,15 @@ export default function BoundaryPage() {
             />
 
             {/* Right Side Analytics */}
-            <AnalyticsControls activeBoundaryId={selectedId} bubbles={bubbles} />
+            <AnalyticsControls
+                activeBoundaryId={selectedId}
+                bubbles={bubbles}
+                boundaryType={boundaryType}
+                onGenerated={useCallback((csv: string, id: string) => {
+                    loadBubblesFromCSV(csv, id);
+                    if (selectionMode !== 'Bubbles') setSelectionMode('Bubbles');
+                }, [loadBubblesFromCSV, selectionMode])}
+            />
 
             {/* System Log Console */}
             {import.meta.env.DEV && <LogConsole />}

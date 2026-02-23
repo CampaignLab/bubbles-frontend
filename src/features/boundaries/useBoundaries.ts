@@ -14,6 +14,9 @@ export function useBoundaries(type: 'ward' | 'constituency' = 'constituency') {
     const [availableBoundaries, setAvailableBoundaries] = useState<any[]>([]);
 
     useEffect(() => {
+        setAvailableBoundaries([]);
+        setSelectedId(null);
+        setGeojson(null);
         boundaryService.listBoundaries(type).then(setAvailableBoundaries);
     }, [type]);
 

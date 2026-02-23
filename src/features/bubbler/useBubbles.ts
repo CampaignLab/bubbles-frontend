@@ -86,7 +86,10 @@ export function useBubbles() {
             if (lastRequestRef.current !== id) return;
 
             if (data.features) {
-                const points = data.features.map((f: any) => f.properties as BubblePoint);
+                const points = data.features.map((f: any) => ({
+                    ...f.properties,
+                    id: f.id || f.properties?.id || `bubble-${Math.random()}`
+                }) as BubblePoint);
                 setBubbles(points);
                 setActiveSessionId(id);
                 const saved = availableBubbles.find(b => b.id === id);
@@ -157,6 +160,66 @@ export function useBubbles() {
         addLog?.("CSV Generated", "success", "Audience export complete.");
     };
 
+    const loadBubblesFromCSV = useCallback((csvText: string, sessionId: string) => {
+        try {
+            const lines = csvText.trim().split('\n');
+            if (lines.length <= 1) return; // Only header
+
+            const newBubbles: BubblePoint[] = lines.slice(1)
+                .map((line, idx) => {
+                    const parts = line.split(',');
+                    if (parts.length < 3) return null;
+
+                    let type: 'inclusion' | 'exclusion' = 'inclusion';
+                    let latNum = NaN;
+                    let lngNum = NaN;
+                    let radNum = NaN;
+
+                    // Handle constituency format: type, "(lat, lng) +label", radius
+                    if (parts[1].trim().startsWith('"(') || parts[1].trim().startsWith('(')) {
+                        type = parts[0].trim().toLowerCase() as any;
+                        const coordPart = parts.slice(1, -1).join(','); // Join back if comma inside quotes
+                        const matches = coordPart.match(/\(?([-+]?\d*\.?\d+)\s*,\s*([-+]?\d*\.?\d+)\)?/);
+                        if (matches) {
+                            latNum = parseFloat(matches[1]);
+                            lngNum = parseFloat(matches[2]);
+                        }
+                        radNum = parseFloat(parts[parts.length - 1]);
+                    } else {
+                        // Standard format: type, lng, lat, radius
+                        const [t, lng, lat, radius] = parts;
+                        type = t.trim().toLowerCase() as any;
+                        lngNum = parseFloat(lng);
+                        latNum = parseFloat(lat);
+                        radNum = parseFloat(radius);
+                    }
+
+                    if (isNaN(lngNum) || isNaN(latNum) || isNaN(radNum)) return null;
+
+                    return {
+                        id: `loaded-${sessionId}-${idx}-${Date.now()}`,
+                        type: type,
+                        lng: lngNum,
+                        lat: latNum,
+                        radiusKm: radNum
+                    };
+                })
+                .filter((b): b is BubblePoint => b !== null);
+
+            if (newBubbles.length === 0) {
+                addLog?.("Load Error", "warning", "CSV contained no valid coordinate data.");
+                return;
+            }
+
+            setBubbles(newBubbles);
+            setActiveSessionId(sessionId);
+            setActiveSessionName(`Session: ${sessionId}`);
+            addLog?.("Bubbles Loaded", "success", `Imported ${newBubbles.length} points from audience data.`);
+        } catch (err: any) {
+            addLog?.("Load Error", "error", "Failed to parse audience CSV data.");
+        }
+    }, [addLog]);
+
     return {
         bubbles,
         availableBubbles,
@@ -172,6 +235,7 @@ export function useBubbles() {
         saveBubbles,
         loadBubble,
         deleteSession,
-        generateAudienceCSV
+        generateAudienceCSV,
+        loadBubblesFromCSV
     };
 }
