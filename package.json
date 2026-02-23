@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "stage": "npm run build -- --mode staging && vite preview --mode staging",
     "stage:dev": "vite --mode staging",
-    "predeploy": "npm run build",
+    "predeploy": "npm run build -- --mode staging",
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
