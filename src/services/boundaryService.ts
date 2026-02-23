@@ -16,6 +16,19 @@ const API_BASE = import.meta.env.VITE_API_URL
     ? import.meta.env.VITE_API_URL.replace(/\/$/, '') // Remove trailing slash if present
     : (import.meta.env.DEV ? '/api/data' : `${import.meta.env.BASE_URL}data`);
 
+/**
+ * Robustly extracts the bucket name and project ID from a Supabase Storage URL.
+ */
+const storageConfig = {
+    isSupabase: API_BASE.includes('supabase.co/storage'),
+    get bucketName() {
+        if (!this.isSupabase) return 'data';
+        // URL format: https://[project-id].supabase.co/storage/v1/object/public/[bucket-name]
+        const segments = API_BASE.split('/');
+        return segments[segments.length - 1] || 'data';
+    }
+};
+
 const LOCAL_STORAGE_KEY = 'bubbles_user_sessions';
 
 /**
@@ -58,43 +71,61 @@ export const boundaryService = {
     async listBoundaries(type: 'ward' | 'constituency'): Promise<BoundaryMetadata[]> {
         const folder = type === 'ward' ? 'ward' : 'const';
 
-        console.log(`🔍 [Service] Listing boundaries for type: ${type} (folder: ${folder})`);
-        console.log(`🌐 [Service] API_BASE: ${API_BASE}`);
+        console.log(`🔍 [Service] Requesting boundary list: ${type}`);
 
-        // SUPABASE STORAGE MODE: Fetch list using Supabase SDK
-        if (API_BASE.includes('supabase.co/storage')) {
-            console.log(`☁️ [Service] Detected Supabase Storage mode. Listing from 'data' bucket, folder: ${folder}`);
+        // SUPABASE STORAGE MODE
+        if (storageConfig.isSupabase) {
+            const bucket = storageConfig.bucketName;
+            console.log(`☁️ [Storage] Target Bucket: ${bucket}, Folder: ${folder}`);
 
-            const { data, error } = await supabase.storage.from('data').list(folder, {
-                limit: 100,
-                offset: 0,
-                sortBy: { column: 'name', order: 'asc' },
-            });
+            try {
+                let { data, error } = await supabase.storage.from(bucket).list(folder, {
+                    limit: 100,
+                    sortBy: { column: 'name', order: 'asc' },
+                });
 
-            if (error) {
-                console.error("❌ [Service] Supabase Storage list error:", error);
+                // Robust Plural Fallback: If 'ward' is empty, try 'wards'
+                if (type === 'ward' && (!data || data.length === 0)) {
+                    console.log(`☁️ [Storage] Folder 'ward' empty, retrying with 'wards'...`);
+                    const retry = await supabase.storage.from(bucket).list('wards', { limit: 100 });
+                    if (retry.data && retry.data.length > 0) {
+                        data = retry.data;
+                    }
+                }
+
+                if (error) {
+                    console.error("❌ [Storage] Supabase list error:", error);
+                    return [];
+                }
+
+                if (!data || data.length === 0) {
+                    console.warn(`⚠️ [Storage] Folder checked successfully, but it is empty.`);
+                    return [];
+                }
+
+                console.log(`✅ [Storage] Found ${data.length} files in '${folder}'.`);
+
+                return data
+                    .filter(file => file.name.endsWith('.geojson'))
+                    .map(file => ({
+                        id: file.name.replace('.geojson', ''),
+                        name: file.name.replace('.geojson', '').toUpperCase()
+                    }));
+            } catch (e) {
+                console.error("❌ [Storage] Unexpected error during listing:", e);
                 return [];
             }
-
-            if (!data || data.length === 0) {
-                console.warn(`⚠️ [Service] No files found in bucket 'data' inside folder '${folder}'. Check policies and contents.`);
-                return [];
-            }
-
-            console.log(`✅ [Service] Found ${data.length} items in '${folder}':`, data.map(f => f.name));
-
-            return data
-                .filter(file => file.name.endsWith('.geojson'))
-                .map(file => ({
-                    id: file.name.replace('.geojson', ''),
-                    name: file.name.replace('.geojson', '').toUpperCase()
-                }));
         }
 
-        // STANDARD MODE: Fetch JSON list from directory index
-        const response = await fetch(`${API_BASE}/${folder}/`);
-        if (!response.ok) return [];
-        return await response.json();
+        // STANDARD FETCH FALLBACK
+        try {
+            const response = await fetch(`${API_BASE}/${folder}/`);
+            if (!response.ok) return [];
+            return await response.json();
+        } catch (e) {
+            console.warn("Fallback fetch failed:", e);
+            return [];
+        }
     },
 
     /**
@@ -106,9 +137,10 @@ export const boundaryService = {
         // 1. Get official samples from Cloud/API
         let apiList: BoundaryMetadata[] = [];
         try {
-            if (API_BASE.includes('supabase.co/storage')) {
+            if (storageConfig.isSupabase) {
+                const bucket = storageConfig.bucketName;
                 console.log("☁️ [Service] Fetching sessions from Supabase Storage 'bubbles' folder");
-                const { data, error } = await supabase.storage.from('data').list('bubbles', {
+                const { data, error } = await supabase.storage.from(bucket).list('bubbles', {
                     limit: 100,
                     offset: 0,
                     sortBy: { column: 'name', order: 'asc' },
@@ -154,9 +186,15 @@ export const boundaryService = {
      * Internal helper to fetch content from Supabase Storage or standard URL.
      */
     async fetchFromStorage(path: string, responseType: 'json' | 'text' = 'json'): Promise<any> {
-        if (API_BASE.includes('supabase.co/storage')) {
-            const { data, error } = await supabase.storage.from('data').download(path);
-            if (error) throw error;
+        if (storageConfig.isSupabase) {
+            const bucket = storageConfig.bucketName;
+            console.log(`☁️ [Storage] Downloading: ${path} from Bucket: ${bucket}`);
+
+            const { data, error } = await supabase.storage.from(bucket).download(path);
+            if (error) {
+                console.error(`❌ [Storage] Download failed for ${path}:`, error);
+                throw error;
+            }
             if (responseType === 'json') {
                 return JSON.parse(await data.text());
             }
