@@ -6,13 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build && npm run build:404",
-    "build:404": "copy dist\\index.html dist\\404.html",
+    "build:404": "node -e \"require('fs').copyFileSync('dist/index.html', 'dist/404.html')\"",
     "lint": "eslint .",
     "preview": "vite preview",
     "stage": "npm run build -- --mode staging && vite preview --mode staging",
     "stage:dev": "vite --mode staging",
-    "predeploy": "npm run build -- --mode staging",
-    "deploy": "gh-pages -d dist"
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist",
+    "deploy:staging": "npm run build -- --mode staging && gh-pages -d dist"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",

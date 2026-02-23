@@ -39,28 +39,31 @@ export default function AuthPage() {
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
         }}>
 
-            {/* DEV BYPASS TOGGLE BUTTON */}
-            <button
-                onClick={signInWithDevBypass}
-                onMouseEnter={() => setIsBypassHovered(true)}
-                onMouseLeave={() => setIsBypassHovered(false)}
-                style={{
-                    position: 'absolute',
-                    top: '20px',
-                    right: '20px',
-                    zIndex: 2000,
-                    padding: '10px 15px',
-                    background: isBypassHovered ? '#f1f5f9' : 'white',
-                    border: '1px solid #000',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    fontSize: '13px',
-                    transition: 'background 0.2s',
-                    boxShadow: isBypassHovered ? '2px 2px 0px #000' : 'none',
-                }}
-            >
-                BYPASS LOGIN (DOE)
-            </button>
+
+            {/* DEV BYPASS - Uses Vite Env var to physically strip code from build if false */}
+            {import.meta.env.VITE_ALLOW_BYPASS === 'true' && (
+                <button
+                    onClick={signInWithDevBypass}
+                    onMouseEnter={() => setIsBypassHovered(true)}
+                    onMouseLeave={() => setIsBypassHovered(false)}
+                    style={{
+                        position: 'absolute',
+                        top: '20px',
+                        right: '20px',
+                        zIndex: 2000,
+                        padding: '10px 15px',
+                        background: isBypassHovered ? '#f1f5f9' : 'white',
+                        border: '1px solid #000',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        fontSize: '13px',
+                        transition: 'background 0.2s',
+                        boxShadow: isBypassHovered ? '2px 2px 0px #000' : 'none',
+                    }}
+                >
+                    BYPASS LOGIN (DOE)
+                </button>
+            )}
 
             {/* LOGIN CARD */}
             <div style={{

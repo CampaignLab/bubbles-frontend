@@ -43,18 +43,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const signInWithDevBypass = () => {
-        // Create a dummy user for dev purposes
-        const devUser: AuthUser = {
-            devBypass: true,
-            id: 'dev-bypass-user-id-123',
-            email: 'john.doe@campaignlab.uk',
-            app_metadata: {},
-            user_metadata: { name: 'John Doe (Admin)' },
-            aud: 'authenticated',
-            created_at: new Date().toISOString()
-        } as any; // Cast as any because we aren't filling all Supabase User fields
+        if (import.meta.env.VITE_ALLOW_BYPASS === 'true') {
+            // Create a dummy user for dev purposes
+            const devUser: AuthUser = {
+                devBypass: true,
+                id: 'dev-bypass-user-id-123',
+                email: 'john.doe@campaignlab.uk',
+                app_metadata: {},
+                user_metadata: { name: 'John Doe (Admin)' },
+                aud: 'authenticated',
+                created_at: new Date().toISOString()
+            } as any; // Cast as any because we aren't filling all Supabase User fields
 
-        setUser(devUser);
+            setUser(devUser);
+        } else {
+            console.error("Bypass login is disabled in this environment.");
+        }
     };
 
     const signOut = async () => {
