@@ -3,13 +3,16 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { LogProvider } from './context/logContext.tsx'
+import { AuthProvider } from './context/AuthContext.tsx'
 //import Home from './features/DashboardPage.tsx'
 //import { Layout } from '@/components/layout.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <LogProvider>
-      <App />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </LogProvider>
   </StrictMode>,
 )

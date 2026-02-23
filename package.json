@@ -5,14 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && copy dist\\index.html dist\\404.html",
+    "build": "tsc -b && vite build && npm run build:404",
+    "build:404": "copy dist\\index.html dist\\404.html",
     "lint": "eslint .",
     "preview": "vite preview",
-    "stage": "npm run build && vite preview",
+    "stage": "npm run build -- --mode staging && vite preview --mode staging",
+    "stage:dev": "vite --mode staging",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.97.0",
     "@turf/turf": "^7.3.4",
     "@types/lodash": "^4.17.23",
     "clsx": "^2.1.1",
