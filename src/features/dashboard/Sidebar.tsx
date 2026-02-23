@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 interface SidebarProps {
     onPageChange: (page: string) => void;
@@ -6,6 +7,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onPageChange, activePage }: SidebarProps) {
+    const { user, signOut } = useAuth();
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     return (
@@ -101,7 +103,8 @@ export function Sidebar({ onPageChange, activePage }: SidebarProps) {
                     display: 'flex',
                     alignItems: 'center',
                     gap: '12px',
-                    justifyContent: isCollapsed ? 'center' : 'flex-start'
+                    justifyContent: isCollapsed ? 'center' : 'flex-start',
+                    marginBottom: isCollapsed ? '0' : '16px'
                 }}>
                     <div style={{
                         width: '36px',
@@ -117,15 +120,46 @@ export function Sidebar({ onPageChange, activePage }: SidebarProps) {
                         border: '2px solid #fff',
                         boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                     }}>
-                        JD
+                        {user?.email?.substring(0, 2).toUpperCase() || 'JD'}
                     </div>
                     {!isCollapsed && (
-                        <div style={{ overflow: 'hidden' }}>
-                            <div style={{ fontSize: '13px', fontVariationSettings: '"wght" 600', whiteSpace: 'nowrap' }}>John Doe</div>
-                            <div style={{ fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap' }}>Organizer</div>
+                        <div style={{ overflow: 'hidden', flex: 1 }}>
+                            <div style={{ fontSize: '13px', fontVariationSettings: '"wght" 600', whiteSpace: 'nowrap' }}>
+                                {user?.user_metadata?.name || user?.email || 'John Doe'}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                                {user?.app_metadata?.role || 'Organizer'}
+                            </div>
                         </div>
                     )}
                 </div>
+
+                {/* Log Out Action */}
+                {!isCollapsed && (
+                    <button
+                        onClick={() => void signOut()}
+                        style={{
+                            width: '100%',
+                            padding: '8px',
+                            background: '#fee2e2',
+                            color: '#dc2626',
+                            border: '1px solid #fecaca',
+                            borderRadius: '6px',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#fecaca'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = '#fee2e2'}
+                    >
+                        LOG OUT
+                    </button>
+                )}
 
                 {/* Powered By Section */}
                 {!isCollapsed && (

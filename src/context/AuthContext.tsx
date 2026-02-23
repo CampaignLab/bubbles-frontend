@@ -2,9 +2,14 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
 
-// We extend the User type slightly or just use it as is.
-// For the dev bypass, we'll create a fake User object.
-export type AuthUser = User | { devBypass: true; id: string; email: string };
+// Standard type for our authenticated users (Real Supabase or Dev Bypass)
+export type AuthUser = User | {
+    devBypass: true;
+    id: string;
+    email: string;
+    user_metadata?: { name?: string };
+    app_metadata?: { role?: string };
+};
 
 interface AuthContextType {
     user: AuthUser | null;
