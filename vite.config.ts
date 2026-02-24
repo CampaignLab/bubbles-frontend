@@ -32,6 +32,26 @@ export default defineConfig(() => {
           plugins: [['babel-plugin-react-compiler']],
         },
       }),
+      // Simple redirect for local dev: root (/) -> base (/bubbles-frontend/)
+      {
+        name: 'base-redirect',
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            // Check if the request is for the root or index.html
+            const url = req.url || '';
+            const isRoot = url === '/' || url.startsWith('/?') || url === '/index.html';
+
+            if (isRoot) {
+              const query = url.includes('?') ? url.substring(url.indexOf('?')) : '';
+              console.log('[Dev Server] Redirecting root to /bubbles-frontend/' + query);
+              res.writeHead(301, { Location: '/bubbles-frontend/' + query });
+              res.end();
+            } else {
+              next();
+            }
+          });
+        }
+      },
       // Mock API: Active in dev/preview unless explicitly disabled
       useMockApi && mockApiPlugin(),
     ].filter(Boolean),

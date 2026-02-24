@@ -22,9 +22,19 @@ function App() {
     // 1. Initial check on mount
     const checkHashRoute = () => {
       const hash = window.location.hash;
+      const search = window.location.search;
+
+      // Supabase can put errors in either the search query or the hash fragment
+      const searchParams = new URLSearchParams(search);
+      const hashParams = new URLSearchParams(hash.replace('#', ''));
+
+      const hasError = searchParams.has('error') || searchParams.has('error_code') ||
+        hashParams.has('error') || hashParams.has('error_code');
+
       if (hash.includes('type=recovery')) {
         setRoute('reset-password');
-      } else if (hash.includes('type=signup') || hash.includes('type=invite') || hash.includes('type=magiclink')) {
+      } else if (hash.includes('type=signup') || hash.includes('type=invite') ||
+        hash.includes('type=magiclink') || hasError) {
         setRoute('verify');
       } else {
         setRoute('main');

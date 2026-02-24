@@ -214,8 +214,12 @@ export default function AuthPage() {
                                         return;
                                     }
                                     setLoading(true);
+                                    // Origin + Pathname ensures we include /bubbles-frontend/
+                                    const redirectUrl = window.location.origin + window.location.pathname;
+                                    console.log('[Auth] Attempting reset with redirect:', redirectUrl);
+
                                     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-                                        redirectTo: window.location.href // Use current URL to maintain port/environment
+                                        redirectTo: redirectUrl
                                     });
                                     if (resetError) {
                                         setError(resetError.message);

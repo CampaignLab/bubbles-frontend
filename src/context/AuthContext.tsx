@@ -28,14 +28,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Check active sessions and sets the user
         supabase.auth.getSession().then(({ data: { session } }) => {
             if (session?.user) {
-                setUser(session.user);
+                // If the email is confirmed, they are a full user
+                if (session.user.email_confirmed_at) {
+                    setUser(session.user);
+                } else {
+                    // We DO NOT call signOut here yet, because we need the session 
+                    // to exist so the VerifyEmailPage can consume the token!
+                    // We just keep the global 'user' state as null.
+                    setUser(null);
+                }
             }
             setLoading(false);
         });
 
-        // Listen for changes on auth state (in case of sign in/out from other tabs)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null);
+        // Listen for changes on auth state
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            console.log('Auth State Change:', event, !!session);
+
+            if (session?.user) {
+                if (session.user.email_confirmed_at) {
+                    setUser(session.user);
+                } else {
+                    // Keep user null for the dashboard, but don't sign out yet
+                    // so the auth flows can work their magic
+                    setUser(null);
+
+                    // Only force a logout if they aren't on a verification route
+                    // and just tried a standard login
+                    const isAuthRoute = window.location.hash.includes('type=');
+                    if (event === 'SIGNED_IN' && !isAuthRoute) {
+                        supabase.auth.signOut();
+                    }
+                }
+            } else {
+                setUser(null);
+            }
             setLoading(false);
         });
 
