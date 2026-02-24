@@ -204,6 +204,39 @@ export default function AuthPage() {
                         >
                             {loading ? 'Authenticating...' : 'Sign In'}
                         </button>
+
+                        <div style={{ textAlign: 'center', marginTop: '4px' }}>
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    if (!email) {
+                                        setError("Please enter your email address first.");
+                                        return;
+                                    }
+                                    setLoading(true);
+                                    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+                                        redirectTo: window.location.href // Use current URL to maintain port/environment
+                                    });
+                                    if (resetError) {
+                                        setError(resetError.message);
+                                    } else {
+                                        alert("Password reset link sent to " + email);
+                                    }
+                                    setLoading(false);
+                                }}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#64748b',
+                                    fontSize: '12px',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    padding: '4px'
+                                }}
+                            >
+                                Forgot Password?
+                            </button>
+                        </div>
                     </form>
                 </div>
 
