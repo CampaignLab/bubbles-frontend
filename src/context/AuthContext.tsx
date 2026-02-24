@@ -25,39 +25,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Check active sessions and sets the user
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session?.user) {
-                // If the email is confirmed, they are a full user
-                if (session.user.email_confirmed_at) {
-                    setUser(session.user);
+        const verifyUser = async () => {
+            // getUser() is more robust than getSession() as it checks the database
+            // directly to see if the user has been deleted or changed.
+            const { data: { user: supabaseUser }, error } = await supabase.auth.getUser();
+
+            if (supabaseUser) {
+                if (supabaseUser.email_confirmed_at) {
+                    setUser(supabaseUser);
                 } else {
-                    // We DO NOT call signOut here yet, because we need the session 
-                    // to exist so the VerifyEmailPage can consume the token!
-                    // We just keep the global 'user' state as null.
+                    // Strictly block unverified users from the dashboard
+                    console.warn('[Auth] Unverified user detected, clearing session.');
+                    await supabase.auth.signOut();
                     setUser(null);
                 }
+            } else {
+                if (error) console.log('[Auth] Initial session check:', error.message);
+                setUser(null);
             }
             setLoading(false);
-        });
+        };
+
+        verifyUser();
 
         // Listen for changes on auth state
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             console.log('Auth State Change:', event, !!session);
 
             if (session?.user) {
                 if (session.user.email_confirmed_at) {
                     setUser(session.user);
                 } else {
-                    // Keep user null for the dashboard, but don't sign out yet
-                    // so the auth flows can work their magic
                     setUser(null);
-
-                    // Only force a logout if they aren't on a verification route
-                    // and just tried a standard login
+                    // Force logout if they aren't on a verification route
                     const isAuthRoute = window.location.hash.includes('type=');
                     if (event === 'SIGNED_IN' && !isAuthRoute) {
-                        supabase.auth.signOut();
+                        await supabase.auth.signOut();
                     }
                 }
             } else {

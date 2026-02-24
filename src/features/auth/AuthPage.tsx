@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 export default function AuthPage() {
     const { signInWithDevBypass } = useAuth();
@@ -8,23 +8,43 @@ export default function AuthPage() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [isBypassHovered, setIsBypassHovered] = useState(false);
+    const [message, setMessage] = useState<string | null>(null);
     const [isSubmitHovered, setIsSubmitHovered] = useState(false);
+    const [mode, setMode] = useState<'signin' | 'forgot-password'>('signin');
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError(null);
+        setMessage(null);
 
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
-
-        if (signInError) {
-            setError(signInError.message);
+        try {
+            if (mode === 'signin') {
+                const { error: authError } = await supabase.auth.signInWithPassword({
+                    email,
+                    password,
+                });
+                if (authError) throw authError;
+            } else {
+                // Forgot Password Mode
+                const redirectUrl = window.location.origin + window.location.pathname;
+                const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: redirectUrl,
+                });
+                if (resetError) throw resetError;
+                setMessage(`Password reset link sent to ${email}`);
+            }
+        } catch (err: any) {
+            setError(err.message || 'An error occurred during authentication');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
+    };
+
+    const toggleMode = () => {
+        setMode(prev => prev === 'signin' ? 'forgot-password' : 'signin');
+        setError(null);
+        setMessage(null);
     };
 
     return (
@@ -38,34 +58,7 @@ export default function AuthPage() {
             padding: '20px',
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
         }}>
-
-
-            {/* DEV BYPASS - Uses Vite Env var to physically strip code from build if false */}
-            {import.meta.env.VITE_ALLOW_BYPASS === 'true' && (
-                <button
-                    onClick={signInWithDevBypass}
-                    onMouseEnter={() => setIsBypassHovered(true)}
-                    onMouseLeave={() => setIsBypassHovered(false)}
-                    style={{
-                        position: 'absolute',
-                        top: '20px',
-                        right: '20px',
-                        zIndex: 2000,
-                        padding: '10px 15px',
-                        background: isBypassHovered ? '#f1f5f9' : 'white',
-                        border: '1px solid #000',
-                        cursor: 'pointer',
-                        fontWeight: 'bold',
-                        fontSize: '13px',
-                        transition: 'background 0.2s',
-                        boxShadow: isBypassHovered ? '2px 2px 0px #000' : 'none',
-                    }}
-                >
-                    BYPASS LOGIN (DOE)
-                </button>
-            )}
-
-            {/* LOGIN CARD */}
+            {/* Main Auth Card */}
             <div style={{
                 width: '100%',
                 maxWidth: '400px',
@@ -79,7 +72,7 @@ export default function AuthPage() {
             }}>
                 <div style={{ padding: '40px 32px' }}>
 
-                    {/* Header/Logo mimicking the Sidebar */}
+                    {/* Brand Header */}
                     <div style={{ textAlign: 'center', marginBottom: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                         <div style={{
                             width: '48px',
@@ -113,11 +106,12 @@ export default function AuthPage() {
                             letterSpacing: '0.02em',
                             margin: 0
                         }}>
-                            GATEWAY ACCESS
+                            {mode === 'signin' ? 'LOGIN GATEWAY' : 'FORGOT PASSWORD'}
                         </p>
                     </div>
 
-                    <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {/* Form Component */}
+                    <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         {error && (
                             <div style={{
                                 backgroundColor: '#fef2f2',
@@ -129,6 +123,20 @@ export default function AuthPage() {
                                 textAlign: 'center'
                             }}>
                                 {error}
+                            </div>
+                        )}
+
+                        {message && (
+                            <div style={{
+                                backgroundColor: '#f0fdf4',
+                                border: '1px solid #dcfce7',
+                                color: '#16a34a',
+                                fontSize: '13px',
+                                padding: '12px',
+                                borderRadius: '6px',
+                                textAlign: 'center'
+                            }}>
+                                {message}
                             </div>
                         )}
 
@@ -157,30 +165,52 @@ export default function AuthPage() {
                             />
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <label style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>Password</label>
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="••••••••"
-                                required
-                                style={{
-                                    width: '100%',
-                                    padding: '10px 12px',
-                                    backgroundColor: '#f8fafc',
-                                    border: '1px solid #cbd5e1',
-                                    borderRadius: '6px',
-                                    fontSize: '14px',
-                                    color: '#1e293b',
-                                    outline: 'none',
-                                    boxSizing: 'border-box',
-                                    transition: 'border-color 0.2s',
-                                }}
-                                onFocus={(e) => e.target.style.borderColor = '#4f46e5'}
-                                onBlur={(e) => e.target.style.borderColor = '#cbd5e1'}
-                            />
-                        </div>
+                        {mode === 'signin' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <label style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>Password</label>
+                                    <button
+                                        type="button"
+                                        onClick={toggleMode}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            color: '#6366f1',
+                                            fontSize: '11px',
+                                            fontWeight: '600',
+                                            cursor: 'pointer',
+                                            padding: '0',
+                                            transition: 'color 0.2s',
+                                        }}
+                                        onMouseEnter={(e) => (e.currentTarget.style.color = '#4f46e5')}
+                                        onMouseLeave={(e) => (e.currentTarget.style.color = '#6366f1')}
+                                    >
+                                        Forgot Password?
+                                    </button>
+                                </div>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    required
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px 12px',
+                                        backgroundColor: '#f8fafc',
+                                        border: '1px solid #cbd5e1',
+                                        borderRadius: '6px',
+                                        fontSize: '14px',
+                                        color: '#1e293b',
+                                        outline: 'none',
+                                        boxSizing: 'border-box',
+                                        transition: 'border-color 0.2s',
+                                    }}
+                                    onFocus={(e) => e.target.style.borderColor = '#4f46e5'}
+                                    onBlur={(e) => e.target.style.borderColor = '#cbd5e1'}
+                                />
+                            </div>
+                        )}
 
                         <button
                             type="submit"
@@ -198,49 +228,35 @@ export default function AuthPage() {
                                 fontSize: '14px',
                                 cursor: loading ? 'not-allowed' : 'pointer',
                                 transition: 'background-color 0.2s',
-                                marginTop: '8px',
+                                marginTop: '4px',
                                 opacity: loading ? 0.7 : 1
                             }}
                         >
-                            {loading ? 'Authenticating...' : 'Sign In'}
+                            {loading ? 'Processing...' : (mode === 'signin' ? 'Sign In' : 'Reset Password')}
                         </button>
 
-                        <div style={{ textAlign: 'center', marginTop: '4px' }}>
-                            <button
-                                type="button"
-                                onClick={async () => {
-                                    if (!email) {
-                                        setError("Please enter your email address first.");
-                                        return;
-                                    }
-                                    setLoading(true);
-                                    // Origin + Pathname ensures we include /bubbles-frontend/
-                                    const redirectUrl = window.location.origin + window.location.pathname;
-                                    console.log('[Auth] Attempting reset with redirect:', redirectUrl);
-
-                                    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-                                        redirectTo: redirectUrl
-                                    });
-                                    if (resetError) {
-                                        setError(resetError.message);
-                                    } else {
-                                        alert("Password reset link sent to " + email);
-                                    }
-                                    setLoading(false);
-                                }}
-                                style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    color: '#64748b',
-                                    fontSize: '12px',
-                                    fontWeight: '600',
-                                    cursor: 'pointer',
-                                    padding: '4px'
-                                }}
-                            >
-                                Forgot Password?
-                            </button>
-                        </div>
+                        {mode === 'forgot-password' && (
+                            <div style={{ textAlign: 'center', marginTop: '8px' }}>
+                                <button
+                                    type="button"
+                                    onClick={toggleMode}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#64748b',
+                                        fontSize: '12px',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        padding: '0',
+                                        transition: 'color 0.2s',
+                                    }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.color = '#334155')}
+                                    onMouseLeave={(e) => (e.currentTarget.style.color = '#64748b')}
+                                >
+                                    &larr; Back to Login
+                                </button>
+                            </div>
+                        )}
                     </form>
                 </div>
 
@@ -271,6 +287,27 @@ export default function AuthPage() {
                     </a>
                 </div>
             </div>
+
+            {/* Optional Dev Bypass Button */}
+            {import.meta.env.VITE_ALLOW_BYPASS === 'true' && (
+                <button
+                    onClick={signInWithDevBypass}
+                    style={{
+                        marginTop: '24px',
+                        background: 'none',
+                        border: '1px solid #cbd5e1',
+                        color: '#94a3b8',
+                        fontSize: '11px',
+                        padding: '6px 12px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        letterSpacing: '0.05em',
+                        fontWeight: '600'
+                    }}
+                >
+                    BYPASS LOGIN (DEV)
+                </button>
+            )}
         </div>
     );
 }
