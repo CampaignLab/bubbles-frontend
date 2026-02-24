@@ -32,7 +32,7 @@ export default function AuthPage() {
                     redirectTo: redirectUrl,
                 });
                 if (resetError) throw resetError;
-                setMessage(`Password reset link sent to ${email}`);
+                setMessage(`If an account exists for ${email}, a password reset link has been sent.`);
             }
         } catch (err: any) {
             setError(err.message || 'An error occurred during authentication');
@@ -236,7 +236,7 @@ export default function AuthPage() {
                         </button>
 
                         {mode === 'forgot-password' && (
-                            <div style={{ textAlign: 'center', marginTop: '8px' }}>
+                            <div style={{ textAlign: 'center', marginTop: '4px' }}>
                                 <button
                                     type="button"
                                     onClick={toggleMode}
@@ -244,10 +244,10 @@ export default function AuthPage() {
                                         background: 'none',
                                         border: 'none',
                                         color: '#64748b',
-                                        fontSize: '12px',
+                                        fontSize: '11px',
                                         fontWeight: '600',
                                         cursor: 'pointer',
-                                        padding: '0',
+                                        padding: '4px 0',
                                         transition: 'color 0.2s',
                                     }}
                                     onMouseEnter={(e) => (e.currentTarget.style.color = '#334155')}
@@ -262,7 +262,7 @@ export default function AuthPage() {
 
                 {/* Footer section matching Sidebar signature */}
                 <div style={{
-                    padding: '16px',
+                    padding: '16px 16px 24px 16px',
                     borderTop: '1px solid #f1f5f9',
                     backgroundColor: '#f8fafc',
                     textAlign: 'center',
