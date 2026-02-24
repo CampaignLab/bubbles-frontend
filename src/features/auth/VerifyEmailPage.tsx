@@ -240,8 +240,30 @@ export default function VerifyEmailPage() {
                     )}
                 </div>
 
-                <div style={{ padding: '16px', borderTop: '1px solid #f1f5f9', backgroundColor: '#f8fafc', textAlign: 'center', fontSize: '10px', color: '#94a3b8' }}>
-                    POWERED BY <span style={{ color: '#64748b', fontWeight: 'bold' }}>CAMPAIGN LAB</span>
+                <div style={{
+                    padding: '16px',
+                    borderTop: '1px solid #f1f5f9',
+                    backgroundColor: '#f8fafc',
+                    textAlign: 'center',
+                    fontSize: '10px',
+                    color: '#94a3b8',
+                    letterSpacing: '0.05em'
+                }}>
+                    POWERED BY <a
+                        href="https://campaignlab.uk"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = '#64748b')}
+                        style={{
+                            color: '#64748b',
+                            fontWeight: 'bold',
+                            textDecoration: 'none',
+                            transition: 'color 0.2s'
+                        }}
+                    >
+                        CAMPAIGN LAB
+                    </a>
                 </div>
             </div>
         </div>
