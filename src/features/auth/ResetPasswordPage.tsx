@@ -81,9 +81,7 @@ export default function ResetPasswordPage() {
     };
 
     const goBack = () => {
-        // Just clear the hash, App.tsx will re-render
-        window.history.replaceState(null, '', window.location.pathname);
-        window.dispatchEvent(new Event('hashchange'));
+        window.location.href = window.location.origin + window.location.pathname;
     };
 
     return (
@@ -133,18 +131,18 @@ export default function ResetPasswordPage() {
                             fontWeight: '800',
                             letterSpacing: '0.05em',
                             color: '#1e293b',
-                            margin: '0 0 8px 0',
+                            margin: '0 0 6px 0',
                         }}>
-                            RESET PASSWORD
+                            TEAM BUBBLES
                         </h1>
                         <p style={{
-                            fontSize: '12px',
-                            fontWeight: '600',
+                            fontSize: '13px',
+                            fontWeight: '700',
                             color: '#94a3b8',
-                            letterSpacing: '0.02em',
+                            letterSpacing: '0.04em',
                             margin: 0
                         }}>
-                            SECURE ACCOUNT RECOVERY
+                            ACCOUNT RECOVERY
                         </p>
                     </div>
 
