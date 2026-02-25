@@ -73,19 +73,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const signInWithDevBypass = () => {
-        // Checking directly against import.meta.env ensures building-time tree-shaking
-        // and prevents runtime UI "hacking" to enable the bypass branch.
         if (import.meta.env.VITE_BYPASS_ENABLED === 'true') {
             // Create a dummy user for dev purposes
             const devUser: AuthUser = {
                 devBypass: true,
                 id: 'dev-bypass-user-id-123',
                 email: 'john.doe@campaignlab.uk',
-                app_metadata: {},
                 user_metadata: { name: 'John Doe (Admin)' },
                 aud: 'authenticated',
                 created_at: new Date().toISOString()
-            } as any; // Cast as any because we aren't filling all Supabase User fields
+            } as any;
 
             setUser(devUser);
         } else {

@@ -1,21 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
 export default function VerifyEmailPage() {
-    const { signOut } = useAuth();
+    const { signOut, signInWithDevBypass } = useAuth();
+    const hasInitialized = useRef(false);
     const [status, setStatus] = useState<'verifying' | 'confirm_invite' | 'set_password' | 'success' | 'error' | 'expired'>('verifying');
     const [emailType, setEmailType] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [email, setEmail] = useState('');
+    const [isSimulated, setIsSimulated] = useState(false);
     const [isButtonHovered, setIsButtonHovered] = useState(false);
     const [isRejectHovered, setIsRejectHovered] = useState(false);
+    const [isSubmitHovered, setIsSubmitHovered] = useState(false);
 
     useEffect(() => {
+        // --- PREVENT DOUBLE-PROCESSING IN STRICT MODE ---
+        if (hasInitialized.current) return;
+
         const hash = window.location.hash;
         const search = window.location.search;
 
-        // Check for error parameters in both Search AND Hash (Supabase sends these if OTP expired)
         const sParams = new URLSearchParams(search);
         const hParams = new URLSearchParams(hash.replace('#', ''));
 
@@ -23,7 +30,9 @@ export default function VerifyEmailPage() {
         const errorCode = sParams.get('error_code') || hParams.get('error_code');
         const errorDesc = sParams.get('error_description') || hParams.get('error_description');
 
+        // Handle error redirects from Supabase (expired, etc.)
         if (error === 'access_denied' || errorCode === 'otp_expired' || errorCode === 'user_already_exists') {
+            hasInitialized.current = true;
             if (errorCode === 'user_already_exists') {
                 setStatus('error');
                 setErrorMessage('This account has already been registered. Please sign in with your email and password.');
@@ -37,34 +46,47 @@ export default function VerifyEmailPage() {
             return;
         }
 
+        // --- SECURITY CHECK: TOKEN REQUIRED ---
         if (!hash || !hash.includes('access_token=')) {
-            // Only error if we aren't already in an expired/error state
-            if (status !== 'expired' && status !== 'success') {
+            // We only show error if we haven't already initialized successfully
+            if (status === 'verifying') {
                 setStatus('error');
-                setErrorMessage('Invalid verification link. Please use the link sent to your email.');
+                setErrorMessage('Unauthorized access. Please use the verification link sent to your email.');
             }
             return;
         }
 
         const params = new URLSearchParams(hash.replace('#', ''));
+        const token = params.get('access_token');
         const hashType = params.get('type');
+        const userEmail = params.get('email');
+
+        // --- BYPASS GATE: MOCK TOKEN VALIDATION ---
+        // We use a specific "One-to-One" expected token for simulations
+        if (token === 'sb-dev-invite-token-ref-12345') {
+            if (import.meta.env.VITE_BYPASS_ENABLED !== 'true') {
+                // Strictly reject mock tokens in production even if manually entered
+                setStatus('error');
+                setErrorMessage('Invalid verification token.');
+                hasInitialized.current = true;
+                return;
+            }
+            setIsSimulated(true);
+        }
+
+        // CONSUME TOKEN: Wipe the URL immediately after reading
+        window.history.replaceState(null, '', window.location.pathname);
+        hasInitialized.current = true;
+
         setEmailType(hashType);
+        if (userEmail) setEmail(decodeURIComponent(userEmail));
 
         if (hashType === 'invite') {
-            // For developer simulations, we check if they want to test the "User already exists" scenario
-            const mockEmail = params.get('email');
-            if (mockEmail && mockEmail.toLowerCase().includes('exist')) {
-                setStatus('error');
-                setErrorMessage('A user with this email address has already been registered.');
-            } else {
-                setStatus('confirm_invite');
-            }
+            setStatus('confirm_invite');
         } else {
-            // Auto-verify for signup/magiclink
             const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
                 if (event === 'SIGNED_IN' && session) {
                     setStatus('success');
-                    window.history.replaceState(null, '', window.location.pathname);
                 }
             });
             return () => subscription.unsubscribe();
@@ -72,29 +94,40 @@ export default function VerifyEmailPage() {
     }, []);
 
     const handleAccept = () => {
-        // After accepting an invite, we force them to set a password 
-        // because invited users don't have one yet!
         setStatus('set_password');
     };
 
     const handlePasswordSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setErrorMessage('');
+
         if (password.length < 6) {
             setErrorMessage('Password must be at least 6 characters.');
             return;
         }
 
+        if (password !== confirmPassword) {
+            setErrorMessage('Passwords do not match.');
+            return;
+        }
+
+        if (isSimulated) {
+            // MOCK PATH: Trigger developer bypass login
+            signInWithDevBypass();
+            setStatus('success');
+            return;
+        }
+
+        // REAL PATH: Update actual Supabase user
         const { error } = await supabase.auth.updateUser({ password });
         if (error) {
             setErrorMessage(error.message);
         } else {
             setStatus('success');
-            window.history.replaceState(null, '', window.location.pathname);
         }
     };
 
     const handleReject = async () => {
-        // Decline = Clear session and go home.
         await signOut();
         window.history.replaceState(null, '', window.location.pathname);
         window.dispatchEvent(new Event('hashchange'));
@@ -147,7 +180,7 @@ export default function VerifyEmailPage() {
                             B
                         </div>
                         <h1 style={{ fontSize: '22px', fontWeight: '800', letterSpacing: '0.05em', color: '#1e293b', margin: '0' }}>
-                            {status === 'set_password' ? 'CREATE PASSWORD' : 'VERIFICATION'}
+                            {status === 'set_password' ? 'FINAL STEPS' : 'VERIFICATION'}
                         </h1>
                     </div>
 
@@ -213,31 +246,153 @@ export default function VerifyEmailPage() {
                     )}
 
                     {status === 'set_password' && (
-                        <form onSubmit={handlePasswordSubmit}>
-                            <p style={{ color: '#475569', fontSize: '13px', marginBottom: '20px', textAlign: 'center' }}>
-                                Since you were invited, please set a password for your account.
-                            </p>
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="Choose a password (min 6 chars)"
-                                style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', marginBottom: '16px', boxSizing: 'border-box' }}
-                                required
-                            />
-                            <button type="submit" style={{ width: '100%', padding: '12px', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+                        <form onSubmit={handlePasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            {errorMessage && (
+                                <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#ef4444', fontSize: '12px', padding: '10px', borderRadius: '6px', textAlign: 'center' }}>
+                                    {errorMessage}
+                                </div>
+                            )}
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <label style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', letterSpacing: '0.02em' }}>ACCOUNT EMAIL</label>
+                                <input
+                                    type="text"
+                                    value={email}
+                                    readOnly
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px 12px',
+                                        backgroundColor: '#f1f5f9',
+                                        border: '1px solid #e2e8f0',
+                                        borderRadius: '6px',
+                                        fontSize: '14px',
+                                        color: '#64748b',
+                                        cursor: 'not-allowed',
+                                        boxSizing: 'border-box'
+                                    }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', letterSpacing: '0.02em' }}>CREATE PASSWORD</label>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    autoComplete="new-password"
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="Minimum 6 characters"
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px 12px',
+                                        border: '1px solid #cbd5e1',
+                                        borderRadius: '6px',
+                                        fontSize: '14px',
+                                        boxSizing: 'border-box'
+                                    }}
+                                    required
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', letterSpacing: '0.02em' }}>CONFIRM PASSWORD</label>
+                                <input
+                                    type="password"
+                                    value={confirmPassword}
+                                    autoComplete="new-password"
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    placeholder="Repeat your password"
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px 12px',
+                                        border: '1px solid #cbd5e1',
+                                        borderRadius: '6px',
+                                        fontSize: '14px',
+                                        boxSizing: 'border-box'
+                                    }}
+                                    required
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                onMouseEnter={() => setIsSubmitHovered(true)}
+                                onMouseLeave={() => setIsSubmitHovered(false)}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    backgroundColor: isSubmitHovered ? '#059669' : '#10b981',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    fontWeight: 'bold',
+                                    fontSize: '14px',
+                                    cursor: 'pointer',
+                                    marginTop: '8px',
+                                    transition: 'background-color 0.2s'
+                                }}
+                            >
                                 Finish Setup
                             </button>
                         </form>
                     )}
 
                     {status === 'success' && (
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ width: '40px', height: '40px', background: '#d1fae5', color: '#10b981', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontWeight: 'bold' }}>✓</div>
-                            <h3 style={{ color: '#1e293b', marginBottom: '8px' }}>
-                                {emailType === 'invite' ? 'Invite Accepted!' : 'Verification Success!'}
+                        <div style={{ textAlign: 'center', padding: '10px 0' }}>
+                            {/* Larger, more prominent checkmark */}
+                            <div style={{
+                                width: '64px',
+                                height: '64px',
+                                background: '#d1fae5',
+                                color: '#10b981',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                margin: '0 auto 24px',
+                                fontSize: '32px',
+                                boxShadow: '0 4px 10px rgba(16, 185, 129, 0.1)'
+                            }}>
+                                ✓
+                            </div>
+
+                            <h3 style={{
+                                color: '#1e293b',
+                                fontSize: '20px',
+                                fontWeight: '800',
+                                marginBottom: '12px',
+                                letterSpacing: '-0.01em'
+                            }}>
+                                {emailType === 'invite' ? 'Welcome to the Squad!' : 'Identity Verified!'}
                             </h3>
-                            <button onClick={goHome} style={{ width: '100%', padding: '12px', background: '#4f46e5', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+
+                            <p style={{
+                                color: '#64748b',
+                                fontSize: '14px',
+                                marginBottom: '32px',
+                                lineHeight: '1.5'
+                            }}>
+                                Your account is now fully active. Ready to dive back into your campaign?
+                            </p>
+
+                            <button
+                                onClick={goHome}
+                                onMouseEnter={() => setIsSubmitHovered(true)}
+                                onMouseLeave={() => setIsSubmitHovered(false)}
+                                style={{
+                                    width: '100%',
+                                    padding: '14px',
+                                    background: isSubmitHovered ? '#4338ca' : '#4f46e5',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontWeight: '700',
+                                    fontSize: '15px',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    boxShadow: isSubmitHovered ? '0 4px 12px rgba(79, 70, 229, 0.3)' : 'none',
+                                    transform: isSubmitHovered ? 'translateY(-1px)' : 'none'
+                                }}
+                            >
                                 Enter Dashboard
                             </button>
                         </div>

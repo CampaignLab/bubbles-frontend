@@ -346,8 +346,9 @@ export default function AuthPage() {
                                             // USER EXISTS: Simulate the "Already Registered" error flow
                                             window.location.hash = `#type=invite&error_code=user_already_exists&email=${encodeURIComponent(email)}`;
                                         } else {
-                                            // USER NEW: Simulate the "Accept Invite" flow
-                                            window.location.hash = `#type=invite&access_token=dev_mock_token&email=${encodeURIComponent(email)}`;
+                                            // USER NEW: Simulate the "Accept Invite" flow with a one-to-one mock token
+                                            // This mimics the exact structure Supabase sends on a real invite redirect
+                                            window.location.hash = `#access_token=sb-dev-invite-token-ref-12345&expires_in=3600&token_type=bearer&type=invite&email=${encodeURIComponent(email)}`;
                                         }
                                     } catch (err) {
                                         console.error('Simulation check failed:', err);
