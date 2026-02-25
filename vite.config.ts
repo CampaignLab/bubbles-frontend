@@ -40,8 +40,9 @@ export default defineConfig(() => {
             // Check if the request is for the root or index.html
             const url = req.url || '';
             const isRoot = url === '/' || url.startsWith('/?') || url === '/index.html';
+            const isMissingTrailingSlash = url === '/bubbles-frontend' || url.startsWith('/bubbles-frontend?');
 
-            if (isRoot) {
+            if (isRoot || isMissingTrailingSlash) {
               const query = url.includes('?') ? url.substring(url.indexOf('?')) : '';
               console.log('[Dev Server] Redirecting root to /bubbles-frontend/' + query);
               res.writeHead(301, { Location: '/bubbles-frontend/' + query });

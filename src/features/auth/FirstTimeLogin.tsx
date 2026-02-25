@@ -1,17 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 
-export default function VerifyEmailPage() {
-    const { signOut, signInWithDevBypass } = useAuth();
+export default function FirstTimeLogin() {
+    const { signOut } = useAuth();
     const hasInitialized = useRef(false);
-    const [status, setStatus] = useState<'verifying' | 'confirm_invite' | 'set_password' | 'success' | 'error' | 'expired'>('verifying');
-    const [emailType, setEmailType] = useState<string | null>(null);
+    const [status, setStatus] = useState<'verifying' | 'confirm_invite' | 'reveal_password' | 'success' | 'error' | 'expired'>('verifying');
     const [errorMessage, setErrorMessage] = useState('');
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
     const [email, setEmail] = useState('');
-    const [isSimulated, setIsSimulated] = useState(false);
+    const [generatedPassword, setGeneratedPassword] = useState('');
+    const [isCopied, setIsCopied] = useState(false);
     const [isButtonHovered, setIsButtonHovered] = useState(false);
     const [isRejectHovered, setIsRejectHovered] = useState(false);
     const [isSubmitHovered, setIsSubmitHovered] = useState(false);
@@ -20,8 +18,8 @@ export default function VerifyEmailPage() {
         // --- PREVENT DOUBLE-PROCESSING IN STRICT MODE ---
         if (hasInitialized.current) return;
 
-        const hash = window.location.hash;
-        const search = window.location.search;
+        const hash = (window as any).__INITIAL_HASH__ || window.location.hash;
+        const search = (window as any).__INITIAL_SEARCH__ || window.location.search;
 
         const sParams = new URLSearchParams(search);
         const hParams = new URLSearchParams(hash.replace('#', ''));
@@ -57,69 +55,53 @@ export default function VerifyEmailPage() {
         }
 
         const params = new URLSearchParams(hash.replace('#', ''));
-        const token = params.get('access_token');
         const hashType = params.get('type');
         const userEmail = params.get('email');
 
-        // --- BYPASS GATE: MOCK TOKEN VALIDATION ---
-        // We use a specific "One-to-One" expected token for simulations
-        if (token === 'sb-dev-invite-token-ref-12345') {
-            if (import.meta.env.VITE_BYPASS_ENABLED !== 'true') {
-                // Strictly reject mock tokens in production even if manually entered
-                setStatus('error');
-                setErrorMessage('Invalid verification token.');
-                hasInitialized.current = true;
-                return;
-            }
-            setIsSimulated(true);
-        }
-
         // CONSUME TOKEN: Wipe the URL immediately after reading
         window.history.replaceState(null, '', window.location.pathname);
+        (window as any).__INITIAL_HASH__ = '';
+        (window as any).__INITIAL_SEARCH__ = '';
         hasInitialized.current = true;
 
-        setEmailType(hashType);
         if (userEmail) setEmail(decodeURIComponent(userEmail));
 
         if (hashType === 'invite') {
+            // This is a true first-time invite (no password exists)
+            const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+            let newPassword = "";
+            for (let i = 0; i < 18; i++) {
+                newPassword += charset.charAt(Math.floor(Math.random() * charset.length));
+            }
+            setGeneratedPassword(newPassword);
             setStatus('confirm_invite');
+        } else if (hashType === 'magiclink') {
+            // They used a magic link. They are already logged in via the token.
+            // In a real app, we'd check if they have a password set, but Supabase doesn't
+            // expose `hasPassword` cleanly to the client. For now, we assume magic link = returning user.
+            setStatus('success');
         } else {
-            const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-                if (event === 'SIGNED_IN' && session) {
-                    setStatus('success');
-                }
-            });
-            return () => subscription.unsubscribe();
+            setStatus('error');
+            setErrorMessage('Invalid link type. This page requires an invite or magic link.');
         }
-    }, []);
+    }, [status]);
 
     const handleAccept = () => {
-        setStatus('set_password');
+        setStatus('reveal_password');
+    };
+
+    const copyToClipboard = () => {
+        navigator.clipboard.writeText(generatedPassword);
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
     };
 
     const handlePasswordSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setErrorMessage('');
 
-        if (password.length < 6) {
-            setErrorMessage('Password must be at least 6 characters.');
-            return;
-        }
-
-        if (password !== confirmPassword) {
-            setErrorMessage('Passwords do not match.');
-            return;
-        }
-
-        if (isSimulated) {
-            // MOCK PATH: Trigger developer bypass login
-            signInWithDevBypass();
-            setStatus('success');
-            return;
-        }
-
-        // REAL PATH: Update actual Supabase user
-        const { error } = await supabase.auth.updateUser({ password });
+        // REAL PATH: Update actual Supabase user with generated password
+        const { error } = await supabase.auth.updateUser({ password: generatedPassword });
         if (error) {
             setErrorMessage(error.message);
         } else {
@@ -180,7 +162,7 @@ export default function VerifyEmailPage() {
                             B
                         </div>
                         <h1 style={{ fontSize: '22px', fontWeight: '800', letterSpacing: '0.05em', color: '#1e293b', margin: '0' }}>
-                            {status === 'set_password' ? 'FINAL STEPS' : 'VERIFICATION'}
+                            {status === 'reveal_password' ? 'SAVE LOGIN' : 'INVITATION'}
                         </h1>
                     </div>
 
@@ -245,7 +227,7 @@ export default function VerifyEmailPage() {
                         </div>
                     )}
 
-                    {status === 'set_password' && (
+                    {status === 'reveal_password' && (
                         <form onSubmit={handlePasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             {errorMessage && (
                                 <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#ef4444', fontSize: '12px', padding: '10px', borderRadius: '6px', textAlign: 'center' }}>
@@ -253,64 +235,54 @@ export default function VerifyEmailPage() {
                                 </div>
                             )}
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <label style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', letterSpacing: '0.02em' }}>ACCOUNT EMAIL</label>
-                                <input
-                                    type="text"
-                                    value={email}
-                                    readOnly
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px 12px',
-                                        backgroundColor: '#f1f5f9',
-                                        border: '1px solid #e2e8f0',
-                                        borderRadius: '6px',
-                                        fontSize: '14px',
-                                        color: '#64748b',
-                                        cursor: 'not-allowed',
-                                        boxSizing: 'border-box'
-                                    }}
-                                />
-                            </div>
+                            <p style={{ color: '#475569', fontSize: '14px', marginBottom: '8px', lineHeight: '1.5', textAlign: 'center' }}>
+                                We've generated a highly secure password for your account. Please copy it and save it in your password manager.
+                            </p>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', letterSpacing: '0.02em' }}>CREATE PASSWORD</label>
-                                <input
-                                    type="password"
-                                    value={password}
-                                    autoComplete="new-password"
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="Minimum 6 characters"
+                                <label style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', letterSpacing: '0.02em', textAlign: 'center' }}>GENERATED PASSWORD</label>
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <input
+                                        type="text"
+                                        value={generatedPassword}
+                                        readOnly
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            backgroundColor: '#f8fafc',
+                                            border: '1px dashed #cbd5e1',
+                                            borderRadius: '6px',
+                                            fontSize: '16px',
+                                            color: '#0f172a',
+                                            fontFamily: 'monospace',
+                                            textAlign: 'center',
+                                            boxSizing: 'border-box'
+                                        }}
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={copyToClipboard}
                                     style={{
-                                        width: '100%',
-                                        padding: '10px 12px',
-                                        border: '1px solid #cbd5e1',
+                                        padding: '10px 16px',
+                                        marginTop: '4px',
+                                        backgroundColor: isCopied ? '#10b981' : '#f1f5f9',
+                                        color: isCopied ? 'white' : '#475569',
+                                        border: isCopied ? '1px solid #10b981' : '1px solid #cbd5e1',
                                         borderRadius: '6px',
-                                        fontSize: '14px',
-                                        boxSizing: 'border-box'
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
                                     }}
-                                    required
-                                />
+                                >
+                                    {isCopied ? 'Copied to Clipboard!' : 'Copy Password'}
+                                </button>
                             </div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', letterSpacing: '0.02em' }}>CONFIRM PASSWORD</label>
-                                <input
-                                    type="password"
-                                    value={confirmPassword}
-                                    autoComplete="new-password"
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    placeholder="Repeat your password"
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px 12px',
-                                        border: '1px solid #cbd5e1',
-                                        borderRadius: '6px',
-                                        fontSize: '14px',
-                                        boxSizing: 'border-box'
-                                    }}
-                                    required
-                                />
+                            {/* Hidden fields to trigger browser password manager save prompt */}
+                            <div style={{ opacity: 0, position: 'absolute', pointerEvents: 'none', height: 0, overflow: 'hidden' }}>
+                                <input type="text" name="username" value={email} autoComplete="username" readOnly />
+                                <input type="password" name="password" value={generatedPassword} autoComplete="new-password" readOnly />
                             </div>
 
                             <button
@@ -331,14 +303,13 @@ export default function VerifyEmailPage() {
                                     transition: 'background-color 0.2s'
                                 }}
                             >
-                                Finish Setup
+                                Save & Enter Dashboard
                             </button>
                         </form>
                     )}
 
                     {status === 'success' && (
                         <div style={{ textAlign: 'center', padding: '10px 0' }}>
-                            {/* Larger, more prominent checkmark */}
                             <div style={{
                                 width: '64px',
                                 height: '64px',
@@ -362,7 +333,7 @@ export default function VerifyEmailPage() {
                                 marginBottom: '12px',
                                 letterSpacing: '-0.01em'
                             }}>
-                                {emailType === 'invite' ? 'Welcome to the Squad!' : 'Identity Verified!'}
+                                Welcome to the Squad!
                             </h3>
 
                             <p style={{
@@ -371,7 +342,7 @@ export default function VerifyEmailPage() {
                                 marginBottom: '32px',
                                 lineHeight: '1.5'
                             }}>
-                                Your account is now fully active. Ready to dive back into your campaign?
+                                Your account is secure. Remember to keep your new password safe.
                             </p>
 
                             <button

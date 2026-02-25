@@ -1,24 +1,8 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import type { User } from '@supabase/supabase-js';
+import type { AuthUser, AuthContextType } from '../types/auth';
 
-// Standard type for our authenticated users (Real Supabase or Dev Bypass)
-export type AuthUser = User | {
-    devBypass: true;
-    id: string;
-    email: string;
-    user_metadata?: { name?: string };
-    app_metadata?: { role?: string };
-};
-
-interface AuthContextType {
-    user: AuthUser | null;
-    loading: boolean;
-    signInWithDevBypass: () => void;
-    signOut: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<AuthUser | null>(null);
@@ -26,21 +10,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         const verifyUser = async () => {
+            console.log('[Auth] Initializing session check...');
             // getUser() is more robust than getSession() as it checks the database
             // directly to see if the user has been deleted or changed.
             const { data: { user: supabaseUser }, error } = await supabase.auth.getUser();
 
             if (supabaseUser) {
-                if (supabaseUser.email_confirmed_at) {
+                // Check if they are in an auth flow (Invite / Recovery)
+                // We check both the live hash AND the captured initial hash to prevent 
+                // race conditions where VerifyEmailPage already "consumed" the hash.
+                const currentHash = window.location.hash;
+                const initialHash = (window as any).__INITIAL_HASH__ || '';
+                const isAuthRoute = currentHash.includes('type=') || initialHash.includes('type=');
+
+                if (supabaseUser.email_confirmed_at || isAuthRoute) {
+                    console.log('[Auth] Valid user session identified:', supabaseUser.email);
                     setUser(supabaseUser);
                 } else {
-                    // Strictly block unverified users from the dashboard
-                    console.warn('[Auth] Unverified user detected, clearing session.');
+                    // Strictly block unverified users from accessing the main dashboard
+                    console.warn('[Auth] Unverified user detected not on an auth route, clearing session.');
                     await supabase.auth.signOut();
                     setUser(null);
                 }
             } else {
-                if (error) console.log('[Auth] Initial session check:', error.message);
+                if (error) console.log('[Auth] No active session found:', error.message);
                 setUser(null);
             }
             setLoading(false);
@@ -50,15 +43,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Listen for changes on auth state
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log('Auth State Change:', event, !!session);
+            console.log('[Auth] State Change Notify:', event, !!session);
 
             if (session?.user) {
-                if (session.user.email_confirmed_at) {
+                const currentHash = window.location.hash;
+                const initialHash = (window as any).__INITIAL_HASH__ || '';
+                const isAuthRoute = currentHash.includes('type=') || initialHash.includes('type=');
+
+                if (session.user.email_confirmed_at || isAuthRoute) {
                     setUser(session.user);
                 } else {
                     setUser(null);
                     // Force logout if they aren't on a verification route
-                    const isAuthRoute = window.location.hash.includes('type=');
                     if (event === 'SIGNED_IN' && !isAuthRoute) {
                         await supabase.auth.signOut();
                     }
@@ -72,32 +68,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return () => subscription.unsubscribe();
     }, []);
 
-    const signInWithDevBypass = () => {
+    const signInWithDevBypass = (email?: string) => {
         if (import.meta.env.VITE_BYPASS_ENABLED === 'true') {
-            // Create a dummy user for dev purposes
             const devUser: AuthUser = {
                 devBypass: true,
-                id: 'dev-bypass-user-id-123',
-                email: 'john.doe@campaignlab.uk',
-                user_metadata: { name: 'John Doe (Admin)' },
+                id: 'dev-bypass-' + (email ? 'invite' : 'admin'),
+                email: email || 'john.doe@campaignlab.uk',
+                app_metadata: {},
+                user_metadata: {
+                    name: email
+                        ? `Simulated: ${email.split('@')[0]}`
+                        : 'John Doe (Admin)'
+                },
                 aud: 'authenticated',
                 created_at: new Date().toISOString()
             } as any;
 
+            console.log('[Auth] Triggering Dev Bypass Login for:', devUser.email);
             setUser(devUser);
         } else {
-            console.error("Bypass login is disabled in this environment.");
+            console.error("Security Breach: Bypass login code should not be reachable in production.");
         }
     };
 
     const signOut = async () => {
         if (user && 'devBypass' in user) {
-            // Just clear local state if it's the bypass user
             setUser(null);
             return;
         }
-
-        // Otherwise actually sign out from Supabase
         await supabase.auth.signOut();
     };
 
@@ -106,12 +104,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             {children}
         </AuthContext.Provider>
     );
-}
-
-export function useAuth() {
-    const context = useContext(AuthContext);
-    if (context === undefined) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
-    return context;
 }

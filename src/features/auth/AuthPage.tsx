@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function AuthPage() {
     const { signInWithDevBypass } = useAuth();
@@ -305,7 +305,7 @@ export default function AuthPage() {
                 }}>
                     {mode === 'signin' && (
                         <button
-                            onClick={signInWithDevBypass}
+                            onClick={() => signInWithDevBypass()}
                             style={{
                                 background: 'none',
                                 border: '1px solid #cbd5e1',
@@ -324,57 +324,71 @@ export default function AuthPage() {
 
                     {mode === 'forgot-password' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', alignItems: 'center' }}>
-                            <button
-                                onClick={async () => {
-                                    if (!email) {
-                                        setError('Enter an email to simulate the invite flow.');
-                                        return;
-                                    }
-
-                                    setLoading(true);
-                                    try {
-                                        // "Paired Logic": We check if the user exists in the actual live Supabase DB
-                                        // We use signUp with a random password because it's a reliable 
-                                        // way to detect 'User already registered' without an admin key.
-                                        const { error: checkError } = await supabase.auth.signUp({
-                                            email,
-                                            password: Math.random().toString(36),
-                                            options: { emailRedirectTo: import.meta.env.VITE_REDIRECT_URL }
-                                        });
-
-                                        if (checkError && checkError.message.includes('already registered')) {
-                                            // USER EXISTS: Simulate the "Already Registered" error flow
-                                            window.location.hash = `#type=invite&error_code=user_already_exists&email=${encodeURIComponent(email)}`;
-                                        } else {
-                                            // USER NEW: Simulate the "Accept Invite" flow with a one-to-one mock token
-                                            // This mimics the exact structure Supabase sends on a real invite redirect
-                                            window.location.hash = `#access_token=sb-dev-invite-token-ref-12345&expires_in=3600&token_type=bearer&type=invite&email=${encodeURIComponent(email)}`;
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', width: '100%', flexWrap: 'wrap' }}>
+                                <button
+                                    onClick={async () => {
+                                        if (!email) {
+                                            setError('Enter an email to send a magic link.');
+                                            return;
                                         }
-                                    } catch (err) {
-                                        console.error('Simulation check failed:', err);
-                                        // Fallback to happy path if something weird happens with the API
-                                        window.location.hash = `#type=invite&access_token=dev_mock_token&email=${encodeURIComponent(email)}`;
-                                    } finally {
-                                        setLoading(false);
-                                    }
-                                }}
-                                disabled={loading}
-                                style={{
-                                    background: 'none',
-                                    border: '1px solid #cbd5e1',
-                                    color: '#94a3b8',
-                                    fontSize: '11px',
-                                    padding: '6px 12px',
-                                    borderRadius: '4px',
-                                    cursor: loading ? 'not-allowed' : 'pointer',
-                                    letterSpacing: '0.05em',
-                                    fontWeight: '600',
-                                    width: 'fit-content',
-                                    opacity: loading ? 0.5 : 1
-                                }}
-                            >
-                                {loading ? 'CHECKING...' : 'SIMULATE INVITE (AUTO-DETECT)'}
-                            </button>
+                                        setLoading(true);
+                                        try {
+                                            const { error: inviteError } = await supabase.auth.signInWithOtp({
+                                                email,
+                                                options: {
+                                                    emailRedirectTo: import.meta.env.VITE_REDIRECT_URL,
+                                                }
+                                            });
+                                            if (inviteError) {
+                                                setError(inviteError.message);
+                                            } else {
+                                                setMessage('Magic link sent successfully.');
+                                            }
+                                        } catch (err: any) {
+                                            setError('Failed to send magic link.');
+                                        } finally {
+                                            setLoading(false);
+                                        }
+                                    }}
+                                    disabled={loading}
+                                    style={{
+                                        background: 'none',
+                                        border: '1px solid #cbd5e1',
+                                        color: '#94a3b8',
+                                        fontSize: '11px',
+                                        padding: '6px 12px',
+                                        borderRadius: '4px',
+                                        cursor: loading ? 'not-allowed' : 'pointer',
+                                        letterSpacing: '0.05em',
+                                        fontWeight: '600',
+                                        flex: '1 1 auto',
+                                        textAlign: 'center',
+                                        opacity: loading ? 0.5 : 1
+                                    }}
+                                >
+                                    SEND MAGIC LINK (INVITE)
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        window.location.hash = `#route=signup`;
+                                    }}
+                                    style={{
+                                        background: 'none',
+                                        border: '1px dashed #cbd5e1',
+                                        color: '#94a3b8',
+                                        fontSize: '11px',
+                                        padding: '6px 12px',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        letterSpacing: '0.05em',
+                                        fontWeight: '600',
+                                        flex: '1 1 auto',
+                                        textAlign: 'center'
+                                    }}
+                                >
+                                    GO TO HIDDEN SIGNUP
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
