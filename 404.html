@@ -63,7 +63,7 @@
       visibility: hidden;
     }
   </style>
-  <script type="module" crossorigin src="/bubbles-frontend/assets/index-B7IP86i_.js"></script>
+  <script type="module" crossorigin src="/bubbles-frontend/assets/index-DXgTK0Z1.js"></script>
   <link rel="modulepreload" crossorigin href="/bubbles-frontend/assets/maplibre-vendor-DFyPYFR1.js">
   <link rel="stylesheet" crossorigin href="/bubbles-frontend/assets/maplibre-vendor-kWVbv8B-.css">
   <link rel="stylesheet" crossorigin href="/bubbles-frontend/assets/index-Dx8zgHWF.css">
@@ -77,6 +77,12 @@
       <div class="sub-text">Setting up your campaign environment...</div>
     </div>
   </div>
+  <script>
+    // Capture the initial URL hash and search before Supabase or any other JS modules clear it.
+    // This allows our routing to correctly identify invite links even if the URL is wiped.
+    window.__INITIAL_HASH__ = window.location.hash;
+    window.__INITIAL_SEARCH__ = window.location.search;
+  </script>
   <div id="root"></div>
 </body>
 
