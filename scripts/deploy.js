@@ -1,30 +1,37 @@
 import { execSync } from 'child_process';
 
 const args = process.argv.slice(2);
-const mode = args.includes('--staging') ? 'staging' : 'production';
-// Find message after -m or as the first free argument
-let message = 'updates';
-const mIndex = args.indexOf('-m');
+const isStaging = args.includes('--staging');
 
-if (mIndex !== -1 && args[mIndex + 1]) {
-    message = args[mIndex + 1];
-} else if (args[0] && !args[0].startsWith('--')) {
-    message = args[0];
-}
+// Join all positional arguments into a single message and escape quotes
+const rawMessage = args
+    .filter(arg => arg !== '--staging')
+    .join(' ') || 'updates';
 
-console.log(`\n🚀 Deploying to ${mode === 'staging' ? 'Staging' : 'GitHub Pages'}...`);
+// Escape any internal double quotes to prevent breaking the command
+const message = rawMessage.replace(/"/g, '\\"');
+
+console.log(`\n🚀 Deploying to ${isStaging ? 'Staging' : 'GitHub Pages'}...`);
 console.log(`📝 Message: ${message}\n`);
 
-try {
-    if (mode === 'staging') {
-        execSync('npm run build -- --mode staging', { stdio: 'inherit' });
-    } else {
-        execSync('npm run build', { stdio: 'inherit' });
-    }
+// 1. Build
+const buildCommand = isStaging ? 'stage' : 'build';
+console.log(`📦 Running npm run ${buildCommand}...`);
 
-    execSync(`gh-pages -d dist -m "${message}"`, { stdio: 'inherit' });
+try {
+    execSync(`npm run ${buildCommand}`, { stdio: 'inherit' });
+} catch (e) {
+    console.error('\n❌ Build failed.');
+    process.exit(1);
+}
+
+// 2. Deploy using execSync for reliable quoting on Windows
+console.log(`\n📤 Uploading to GitHub...`);
+try {
+    // Wrapping the message in escaped quotes is the most robust way for Windows shell
+    execSync(`npx gh-pages -d dist -m "${message}"`, { stdio: 'inherit' });
     console.log('\n✅ Deployment complete!');
-} catch (error) {
+} catch (e) {
     console.error('\n❌ Deployment failed.');
     process.exit(1);
 }

@@ -73,27 +73,23 @@ Once deployed, the app will try to fetch from `your-domain.com/api/data/...`. Yo
 The project is configured for automated deployment via the `gh-pages` branch.
 
 ### 1. Production Deployment
-Deploys the main application.
-```bash
-# Standard deploy (defaults to "updates")
-npm run deploy
+Deploys the main application. 
+> **Note**: This updates the `gh-pages` branch (hosting). To see your message in the main code history, remember to commit/push your source code normally via Git.
 
-# Custom message deploy
-npm run deploy -- "Added analytics dashboard fixes"
+```bash
+# Deploys with a custom message to the gh-pages branch
+npm run deploy -- "Added OTP email login verification to app"
 ```
 
 ### 2. Staging Deployment
-Builds using staging environment variables.
+Builds using staging environment variables and pushes to the hosting branch.
 ```bash
 # Staging deploy with custom message
 npm run deploy:staging -- "Testing auth flow redirect"
 ```
 
 ### 3. Under the Hood
-The `scripts/deploy.js` helper:
-- Detects `--staging` flag to trigger the correct Vite build.
-- Captures any string passed after `--` to use as the commit message.
-- Automates the `gh-pages` push.
+We use the `gh-pages` package to push the `dist/` folder. The `--` ensures your message is passed correctly through `npm` to the deployment tool.
 
 ---
 

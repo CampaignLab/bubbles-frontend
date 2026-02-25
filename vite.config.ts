@@ -35,8 +35,8 @@ export default defineConfig(() => {
       // Simple redirect for local dev: root (/) -> base (/bubbles-frontend/)
       {
         name: 'base-redirect',
-        configureServer(server) {
-          server.middlewares.use((req, res, next) => {
+        configureServer(server: any) {
+          server.middlewares.use((req: any, res: any, next: any) => {
             // Check if the request is for the root or index.html
             const url = req.url || '';
             const isRoot = url === '/' || url.startsWith('/?') || url === '/index.html';
