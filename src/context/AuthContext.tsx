@@ -1,5 +1,6 @@
 import React, { createContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { createDevUser } from '../lib/devBypass';
 import type { AuthUser, AuthContextType } from '../types/auth';
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -11,6 +12,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         const verifyUser = async () => {
             console.log('[Auth] Initializing server-side session check...');
+
+            // First check if we have a persisted dev bypass session
+            const savedBypass = localStorage.getItem('sb-dev-bypass');
+            if (savedBypass && import.meta.env.VITE_BYPASS_ENABLED === 'true') {
+                console.log('[Auth] Restoring dev bypass session from storage');
+                setUser(JSON.parse(savedBypass));
+                setLoading(false);
+                return;
+            }
 
             // getUser() is the ONLY way to be sure the user hasn't been deleted in the dashboard.
             // getSession() only reads from local storage and might stay 'valid' even if user is gone.
@@ -88,21 +98,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // This prevents boundaryService from accidentally fetching real data using an old token.
             await supabase.auth.signOut();
 
-            const devUser: AuthUser = {
-                devBypass: true,
-                id: 'dev-bypass-' + (email ? 'invite' : 'admin'),
-                email: email || 'john.doe@campaignlab.uk',
-                app_metadata: {},
-                user_metadata: {
-                    name: email
-                        ? `Simulated: ${email.split('@')[0]}`
-                        : 'John Doe (Admin)'
-                },
-                aud: 'authenticated',
-                created_at: new Date().toISOString()
-            } as any;
+            const devUser = createDevUser(email);
 
             console.log('[Auth] Triggering Dev Bypass Login for:', devUser.email);
+            localStorage.setItem('sb-dev-bypass', JSON.stringify(devUser));
             setUser(devUser);
         } else {
             console.error("Security Breach: Bypass login code should not be reachable in production.");
@@ -111,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const signOut = async () => {
         if (user && 'devBypass' in user) {
+            localStorage.removeItem('sb-dev-bypass');
             setUser(null);
             return;
         }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import { DEV_BYPASS_CONFIG } from '../../lib/devBypass';
 
 export default function AuthPage() {
     const { signInWithDevBypass } = useAuth();
@@ -367,6 +368,28 @@ export default function AuthPage() {
                                     }}
                                 >
                                     SEND MAGIC LINK (INVITE)
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        // Trigger the invitation UX flow with a demo dev session for John Doe
+                                        await signInWithDevBypass(DEV_BYPASS_CONFIG.DEFAULT_EMAIL);
+                                        window.location.hash = `#type=invite`;
+                                    }}
+                                    style={{
+                                        background: 'none',
+                                        border: '1px solid #cbd5e1',
+                                        color: '#94a3b8',
+                                        fontSize: '11px',
+                                        padding: '6px 12px',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        letterSpacing: '0.05em',
+                                        fontWeight: '600',
+                                        flex: '1 1 auto',
+                                        textAlign: 'center'
+                                    }}
+                                >
+                                    BYPASS INVITE (JOHN DOE)
                                 </button>
                                 <button
                                     onClick={() => {

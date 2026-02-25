@@ -107,6 +107,11 @@ export default function FirstTimeLogin() {
         e.preventDefault();
         setErrorMessage('');
 
+        if (user && (user as any).devBypass) {
+            setStatus('success');
+            return;
+        }
+
         // REAL PATH: Update actual Supabase user with generated password
         const { error } = await supabase.auth.updateUser({ password: generatedPassword });
         if (error) {
@@ -118,13 +123,11 @@ export default function FirstTimeLogin() {
 
     const handleReject = async () => {
         await signOut();
-        window.history.replaceState(null, '', window.location.pathname);
-        window.dispatchEvent(new Event('hashchange'));
+        window.location.href = window.location.origin + window.location.pathname;
     };
 
     const goHome = () => {
-        window.history.replaceState(null, '', window.location.pathname);
-        window.dispatchEvent(new Event('hashchange'));
+        window.location.href = window.location.origin + window.location.pathname;
     };
 
     return (
@@ -168,8 +171,8 @@ export default function FirstTimeLogin() {
                         }}>
                             B
                         </div>
-                        <h1 style={{ fontSize: '22px', fontWeight: '800', letterSpacing: '0.05em', color: '#1e293b', margin: '0' }}>
-                            {status === 'reveal_password' ? 'SAVE LOGIN' : 'INVITATION'}
+                        <h1 style={{ fontSize: '22px', fontWeight: '800', letterSpacing: '0.05em', color: '#1e293b', margin: '0.0em 0' }}>
+                            {status === 'success' ? 'TEAM BUBBLES' : 'INVITATION'}
                         </h1>
                     </div>
 
@@ -310,13 +313,13 @@ export default function FirstTimeLogin() {
                                     transition: 'background-color 0.2s'
                                 }}
                             >
-                                Save & Enter Dashboard
+                                Save & Continue
                             </button>
                         </form>
                     )}
 
                     {status === 'success' && (
-                        <div style={{ textAlign: 'center', padding: '10px 0' }}>
+                        <div style={{ textAlign: 'center', padding: '0px 0' }}>
                             <div style={{
                                 width: '64px',
                                 height: '64px',

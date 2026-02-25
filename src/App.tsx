@@ -62,6 +62,13 @@ function App() {
 
       console.log('[App] Hash Change Check:', { hash, currentRoute: route });
 
+      // Explicit exit from auth flows
+      if (hash === '#main') {
+        setRoute('main');
+        window.history.replaceState(null, '', window.location.pathname);
+        return;
+      }
+
       // If we are already on an auth route, only change if there's a NEW explicit auth type in the hash.
       // We DO NOT reset to 'main' just because the hash was cleared (Supabase clears it automatically).
       if (hash.includes('route=signup') && import.meta.env.VITE_BYPASS_ENABLED === 'true') {
@@ -109,14 +116,6 @@ function App() {
   // If no user is logged in, show the login wall
   if (!user) {
     return <AuthPage />;
-  }
-
-  // FORCE AUTH FLOWS: Even if logged in, if we suspect they need to set a password
-  // (e.g. hash was 'invite' or metadata says they are a fresh invite)
-  // we keep them on the FirstTimeLogin page.
-  if (route === 'first-time-login') {
-    console.log('[App] Guard: User logged in but route is still first-time-login. Staying on invite page.');
-    return <FirstTimeLogin />;
   }
 
   // User is authenticated, show the main dashboard
