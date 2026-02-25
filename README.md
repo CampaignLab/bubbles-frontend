@@ -66,5 +66,36 @@ Once deployed, the app will try to fetch from `your-domain.com/api/data/...`. Yo
 1.  **Proxying**: Use Nginx or your host's routing to point `/api` to your Python backend.
 2.  **External URL**: Update `src/services/boundaryService.ts` to use an absolute URL (e.g., `https://api.campaignlab.uk/data/...`).
 
-### 5. Security & Git
+---
+
+## 🚀 Deployment
+
+The project is configured for automated deployment via the `gh-pages` branch.
+
+### 1. Production Deployment
+Deploys the main application.
+```bash
+# Standard deploy (defaults to "updates")
+npm run deploy
+
+# Custom message deploy
+npm run deploy -- "Added analytics dashboard fixes"
+```
+
+### 2. Staging Deployment
+Builds using staging environment variables.
+```bash
+# Staging deploy with custom message
+npm run deploy:staging -- "Testing auth flow redirect"
+```
+
+### 3. Under the Hood
+The `scripts/deploy.js` helper:
+- Detects `--staging` flag to trigger the correct Vite build.
+- Captures any string passed after `--` to use as the commit message.
+- Automates the `gh-pages` push.
+
+---
+
+## 5. Security & Git
 The `/data` folder is included in `.gitignore`. **NEVER** remove this from the ignore list. The frontend service is designed to be swappable, so moving from this local mock to a production Python API requires only a one-line change in `src/services/boundaryService.ts`.
