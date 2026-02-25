@@ -117,13 +117,14 @@ export const boundaryService = {
             }
         }
 
-        // STANDARD FETCH FALLBACK
+        // LOCAL DEV MODE (Only hits if NOT Supabase)
         try {
+            console.log(`🏠 [Service] Fetching local boundaries from ${API_BASE}/${folder}/`);
             const response = await fetch(`${API_BASE}/${folder}/`);
             if (!response.ok) return [];
             return await response.json();
         } catch (e) {
-            console.warn("Fallback fetch failed:", e);
+            console.warn("Local fetch failed:", e);
             return [];
         }
     },
@@ -165,9 +166,13 @@ export const boundaryService = {
             console.warn("Could not fetch bubble samples from API", e);
         }
 
-        // 2. Get user sessions from local cache
-        const localList = userCache.list();
-        console.log(`🏠 [Service] Found ${localList.length} local sessions in browser storage.`);
+        // 2. Get user sessions from local cache (ONLY in dev mode or if explicitly enabled)
+        // If we are in Supabase mode (Stage/Prod), we might want to ignore local storage 
+        // to prevent 'ghost' sessions from local development appearing in the cloud UI.
+        const localList = storageConfig.isSupabase ? [] : userCache.list();
+        if (localList.length > 0) {
+            console.log(`🏠 [Service] Found ${localList.length} local sessions in browser storage.`);
+        }
 
         // 3. Merge (local browser storage overrides API if IDs match)
         const combined = [...localList];

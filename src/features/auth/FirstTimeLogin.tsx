@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function FirstTimeLogin() {
-    const { signOut } = useAuth();
+    const { signOut, user } = useAuth();
     const hasInitialized = useRef(false);
     const [status, setStatus] = useState<'verifying' | 'confirm_invite' | 'reveal_password' | 'success' | 'error' | 'expired'>('verifying');
     const [errorMessage, setErrorMessage] = useState('');
@@ -45,8 +45,8 @@ export default function FirstTimeLogin() {
         }
 
         // --- SECURITY CHECK: TOKEN REQUIRED ---
-        if (!hash || !hash.includes('access_token=')) {
-            // We only show error if we haven't already initialized successfully
+        // If we don't have a hash, but we DO have a user, we might have already consumed the token.
+        if (!hash.includes('access_token=') && !user) {
             if (status === 'verifying') {
                 setStatus('error');
                 setErrorMessage('Unauthorized access. Please use the verification link sent to your email.');
@@ -56,18 +56,23 @@ export default function FirstTimeLogin() {
 
         const params = new URLSearchParams(hash.replace('#', ''));
         const hashType = params.get('type');
-        const userEmail = params.get('email');
+        const userEmailUrl = params.get('email');
 
         // CONSUME TOKEN: Wipe the URL immediately after reading
-        window.history.replaceState(null, '', window.location.pathname);
-        (window as any).__INITIAL_HASH__ = '';
-        (window as any).__INITIAL_SEARCH__ = '';
+        if (hash.includes('access_token=')) {
+            window.history.replaceState(null, '', window.location.pathname);
+            (window as any).__INITIAL_HASH__ = '';
+            (window as any).__INITIAL_SEARCH__ = '';
+        }
+
         hasInitialized.current = true;
 
-        if (userEmail) setEmail(decodeURIComponent(userEmail));
+        // EMAIL RESOLUTION: Prefer URL, fallback to authenticated user
+        const finalEmail = userEmailUrl ? decodeURIComponent(userEmailUrl) : (user?.email || '');
+        setEmail(finalEmail);
 
-        if (hashType === 'invite') {
-            // This is a true first-time invite (no password exists)
+        if (hashType === 'invite' || hashType === 'signup') {
+            // New user flow
             const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
             let newPassword = "";
             for (let i = 0; i < 18; i++) {
@@ -76,15 +81,17 @@ export default function FirstTimeLogin() {
             setGeneratedPassword(newPassword);
             setStatus('confirm_invite');
         } else if (hashType === 'magiclink') {
-            // They used a magic link. They are already logged in via the token.
-            // In a real app, we'd check if they have a password set, but Supabase doesn't
-            // expose `hasPassword` cleanly to the client. For now, we assume magic link = returning user.
+            // Existing user flow
+            setStatus('success');
+        } else if (user) {
+            // Fallback: If we are already logged in but hash is gone, we must be in the success state
+            // unless we specifically need to set a password.
             setStatus('success');
         } else {
             setStatus('error');
             setErrorMessage('Invalid link type. This page requires an invite or magic link.');
         }
-    }, [status]);
+    }, [status, user]);
 
     const handleAccept = () => {
         setStatus('reveal_password');

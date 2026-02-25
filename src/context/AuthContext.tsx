@@ -10,30 +10,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         const verifyUser = async () => {
-            console.log('[Auth] Initializing session check...');
-            // getUser() is more robust than getSession() as it checks the database
-            // directly to see if the user has been deleted or changed.
+            console.log('[Auth] Initializing server-side session check...');
+
+            // getUser() is the ONLY way to be sure the user hasn't been deleted in the dashboard.
+            // getSession() only reads from local storage and might stay 'valid' even if user is gone.
             const { data: { user: supabaseUser }, error } = await supabase.auth.getUser();
 
             if (supabaseUser) {
-                // Check if they are in an auth flow (Invite / Recovery)
-                // We check both the live hash AND the captured initial hash to prevent 
-                // race conditions where VerifyEmailPage already "consumed" the hash.
                 const currentHash = window.location.hash;
                 const initialHash = (window as any).__INITIAL_HASH__ || '';
                 const isAuthRoute = currentHash.includes('type=') || initialHash.includes('type=');
 
                 if (supabaseUser.email_confirmed_at || isAuthRoute) {
-                    console.log('[Auth] Valid user session identified:', supabaseUser.email);
+                    console.log('[Auth] Server verified user:', supabaseUser.email);
                     setUser(supabaseUser);
                 } else {
-                    // Strictly block unverified users from accessing the main dashboard
-                    console.warn('[Auth] Unverified user detected not on an auth route, clearing session.');
+                    console.warn('[Auth] Unverified user detected, clearing session.');
                     await supabase.auth.signOut();
                     setUser(null);
                 }
             } else {
-                if (error) console.log('[Auth] No active session found:', error.message);
+                if (error) {
+                    console.log('[Auth] Verification failed (user might be deleted):', error.message);
+                    // If we have an error but the browser thinks we have a session, 
+                    // we MUST clear local storage to boot them out.
+                    const { data: { session: localSession } } = await supabase.auth.getSession();
+                    if (localSession) {
+                        console.log('[Auth] Clearing stale local session.');
+                        await supabase.auth.signOut();
+                    }
+                } else {
+                    console.log('[Auth] No active session found.');
+                }
                 setUser(null);
             }
             setLoading(false);
@@ -54,15 +62,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     setUser(session.user);
                 } else {
                     setUser(null);
-                    // Force logout if they aren't on a verification route
                     if (event === 'SIGNED_IN' && !isAuthRoute) {
                         await supabase.auth.signOut();
                     }
                 }
             } else {
-                setUser(null);
+                // If we get a SIGNED_OUT event, we clear the user immediately
+                if (event === 'SIGNED_OUT') {
+                    setUser(null);
+                }
             }
-            setLoading(false);
+            // Note: We don't set loading to false here on the initial fire 
+            // to allow verifyUser (server check) to finish first.
+            if (event !== 'INITIAL_SESSION') {
+                setLoading(false);
+            }
         });
 
         return () => subscription.unsubscribe();

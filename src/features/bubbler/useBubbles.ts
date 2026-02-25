@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { boundaryService } from '@/services/boundaryService';
 import { useLogs } from '@/context/logContext';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface BubblePoint {
     id: string;
@@ -12,6 +13,7 @@ export interface BubblePoint {
 
 export function useBubbles() {
     const { addLog } = useLogs() || {};
+    const { user } = useAuth();
     const [bubbles, setBubbles] = useState<BubblePoint[]>([]);
     const [availableBubbles, setAvailableBubbles] = useState<any[]>([]);
     const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -107,7 +109,7 @@ export function useBubbles() {
                 addLog?.("Load Error", "error", err.message);
             }
         }
-    }, [activeSessionId, bubbles.length, availableBubbles, addLog]);
+    }, [activeSessionId, bubbles.length, availableBubbles, addLog, user]);
 
     const saveBubbles = async (name: string) => {
         try {

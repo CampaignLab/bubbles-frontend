@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLogs } from "@/context/logContext";
+import { useAuth } from "@/hooks/useAuth";
 import { boundaryService } from "@/services/boundaryService";
 
 /**
@@ -7,6 +8,7 @@ import { boundaryService } from "@/services/boundaryService";
  */
 export function useBoundaries(type: 'ward' | 'constituency' = 'constituency') {
     const { addLog } = useLogs() || {};
+    const { user } = useAuth();
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [geojson, setGeojson] = useState<any | null>(null);
     const [geojsonId, setGeojsonId] = useState<string | null>(null);
@@ -17,8 +19,15 @@ export function useBoundaries(type: 'ward' | 'constituency' = 'constituency') {
         setAvailableBoundaries([]);
         setSelectedId(null);
         setGeojson(null);
+
+        // Contextual logging for spoofed users. 
+        // Logic for local (Dev) vs Remote (Stage) is handled in boundaryService.
+        if (user && 'devBypass' in user) {
+            console.log('[Boundaries] Using simulated session. Data source:', import.meta.env.DEV ? 'Local' : 'Supabase');
+        }
+
         boundaryService.listBoundaries(type).then(setAvailableBoundaries);
-    }, [type]);
+    }, [type, user]);
 
     useEffect(() => {
         if (!selectedId) {

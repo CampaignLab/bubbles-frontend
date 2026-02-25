@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function ResetPasswordPage() {
     // We break apart the initial validation status from the submission status
@@ -10,25 +11,41 @@ export default function ResetPasswordPage() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [isSubmitHovered, setIsSubmitHovered] = useState(false);
 
-    useEffect(() => {
-        const hash = window.location.hash;
-        if (!hash || !hash.includes('access_token=') || !hash.includes('type=recovery')) {
-            console.error('[Reset Password] Invalid recovery request: missing tokens.');
-            setStatus('input'); // We transition to input phase but show an invalid link error
-            setErrorType('invalid_link');
-            setErrorMessage('Invalid password reset link. Please request a new one.');
+    const { user } = useAuth();
+    const hasInitialized = useRef(false);
 
-            // Clean the invalid hash from the URL
-            window.history.replaceState(null, '', window.location.pathname);
+    useEffect(() => {
+        if (hasInitialized.current) return;
+
+        const hash = (window as any).__INITIAL_HASH__ || window.location.hash;
+
+        // --- SECURITY CHECK: TOKEN REQUIRED ---
+        if (!hash.includes('access_token=') || !hash.includes('type=recovery')) {
+            // If we don't have a hash, but we DO have a user, it's possible 
+            // the token was already consumed by an earlier render/mount.
+            if (user && hasInitialized.current) {
+                setStatus('input');
+                return;
+            }
+
+            if (status === 'validating') {
+                console.error('[Reset Password] Invalid recovery request: missing tokens.');
+                setStatus('input');
+                setErrorType('invalid_link');
+                setErrorMessage('Invalid password reset link. Please request a new one.');
+                window.history.replaceState(null, '', window.location.pathname);
+            }
             return;
         }
 
         // Token found, allow input
         setStatus('input');
-        // We clean up the URL to hide the token from the user and from accidental sharing
-        // We do *not* wipe the entire hash, just replace it with #reset-password so routing works
+        hasInitialized.current = true;
+
+        // Clean URL but keep a flag for App.tsx routing if needed
         window.history.replaceState(null, '', window.location.pathname + '#reset-password');
-    }, []);
+        (window as any).__INITIAL_HASH__ = '';
+    }, [user, status]);
 
     const handleReset = async (e: React.FormEvent) => {
         e.preventDefault();

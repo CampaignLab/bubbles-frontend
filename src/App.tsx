@@ -19,20 +19,34 @@ function App() {
     const hasError = sParams.has('error') || sParams.has('error_code') ||
       hParams.has('error') || hParams.has('error_code');
 
-    if (hash.includes('type=recovery') && import.meta.env.VITE_BYPASS_ENABLED === 'true') return 'hidden-signup';
-    if (hash.includes('type=recovery')) return 'reset-password';
-    if (hash.includes('type=magiclink') || hash.includes('type=invite') || hasError) return 'first-time-login';
-    if (hash.includes('route=signup') && import.meta.env.VITE_BYPASS_ENABLED === 'true') return 'hidden-signup';
-    if (import.meta.env.VITE_BYPASS_ENABLED === 'true' && hash.includes('type=signup')) return 'hidden-signup';
+    // Priority 1: Programmatic Dev Route
+    if (hash.includes('route=signup') && import.meta.env.VITE_BYPASS_ENABLED === 'true') {
+      console.log('[App] Routing to: hidden-signup (Dev Route)');
+      return 'hidden-signup';
+    }
 
+    // Priority 2: Real Supabase Auth Flow Types
+    if (hash.includes('type=recovery')) {
+      console.log('[App] Routing to: reset-password');
+      return 'reset-password';
+    }
+    if (hash.includes('type=signup')) {
+      console.log('[App] Routing to: hidden-signup');
+      return 'hidden-signup';
+    }
+    if (hash.includes('type=magiclink') || hash.includes('type=invite') || hasError) {
+      console.log('[App] Routing to: first-time-login');
+      return 'first-time-login';
+    }
+
+    console.log('[App] Routing to: main');
     return 'main';
   });
 
   useEffect(() => {
-    console.log('[App] Auth State:', { user: !!user, loading, route });
+    console.log('[App] Render:', { user: !!user, loading, route, hash: window.location.hash });
     // Only remove the index.html splash screen once the initial auth state is resolved
     if (!loading) {
-      console.log('[App] Auth resolved, removing splash screen.');
       document.body.classList.add('app-loaded');
     }
   }, [loading, user, route]);
@@ -43,22 +57,28 @@ function App() {
       const search = window.location.search;
       const sParams = new URLSearchParams(search);
       const hParams = new URLSearchParams(hash.replace('#', ''));
-
       const hasError = sParams.has('error') || sParams.has('error_code') ||
         hParams.has('error') || hParams.get('error_code');
 
-      if (hash.includes('type=recovery') && import.meta.env.VITE_BYPASS_ENABLED === 'true') {
+      console.log('[App] Hash Change Check:', { hash, currentRoute: route });
+
+      // If we are already on an auth route, only change if there's a NEW explicit auth type in the hash.
+      // We DO NOT reset to 'main' just because the hash was cleared (Supabase clears it automatically).
+      if (hash.includes('route=signup') && import.meta.env.VITE_BYPASS_ENABLED === 'true') {
         setRoute('hidden-signup');
       } else if (hash.includes('type=recovery')) {
         setRoute('reset-password');
+      } else if (hash.includes('type=signup')) {
+        setRoute('hidden-signup');
       } else if (hash.includes('type=magiclink') || hash.includes('type=invite') || hasError) {
         setRoute('first-time-login');
-      } else if (hash.includes('route=signup') && import.meta.env.VITE_BYPASS_ENABLED === 'true') {
-        setRoute('hidden-signup');
-      } else if (import.meta.env.VITE_BYPASS_ENABLED === 'true' && hash.includes('type=signup')) {
-        setRoute('hidden-signup');
       } else {
-        setRoute('main');
+        // If the hash is cleared and we AREN'T on one of the special pages already, go to main.
+        // If we ARE on a special page, stay there! The child component will handle navigation when it's done.
+        const isAuthRoute = ['first-time-login', 'hidden-signup', 'reset-password'].includes(route);
+        if (!isAuthRoute && !hash.includes('type=') && !hash.includes('route=')) {
+          setRoute('main');
+        }
       }
     };
 
@@ -89,6 +109,14 @@ function App() {
   // If no user is logged in, show the login wall
   if (!user) {
     return <AuthPage />;
+  }
+
+  // FORCE AUTH FLOWS: Even if logged in, if we suspect they need to set a password
+  // (e.g. hash was 'invite' or metadata says they are a fresh invite)
+  // we keep them on the FirstTimeLogin page.
+  if (route === 'first-time-login') {
+    console.log('[App] Guard: User logged in but route is still first-time-login. Staying on invite page.');
+    return <FirstTimeLogin />;
   }
 
   // User is authenticated, show the main dashboard
