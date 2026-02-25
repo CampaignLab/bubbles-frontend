@@ -171,9 +171,17 @@ export default function FirstTimeLogin() {
                         }}>
                             B
                         </div>
-                        <h1 style={{ fontSize: '22px', fontWeight: '800', letterSpacing: '0.05em', color: '#1e293b', margin: '0.0em 0' }}>
-                            {status === 'success' ? 'TEAM BUBBLES' : 'INVITATION'}
+                        <h1 style={{ fontSize: '22px', fontWeight: '800', letterSpacing: '0.05em', color: '#1e293b', margin: '0 0 6px 0' }}>
+                            TEAM BUBBLES
                         </h1>
+                        <p style={{ fontSize: '13px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.04em', margin: 0 }}>
+                            {status === 'verifying' && 'VERIFYING'}
+                            {status === 'confirm_invite' && 'INVITATION'}
+                            {status === 'reveal_password' && 'CREATE PASSWORD'}
+                            {status === 'success' && 'WELCOME'}
+                            {status === 'error' && 'ERROR'}
+                            {status === 'expired' && 'EXPIRED'}
+                        </p>
                     </div>
 
                     {status === 'verifying' && <div style={{ textAlign: 'center', color: '#64748b' }}>Processing token...</div>}
@@ -321,26 +329,26 @@ export default function FirstTimeLogin() {
                     {status === 'success' && (
                         <div style={{ textAlign: 'center', padding: '0px 0' }}>
                             <div style={{
-                                width: '64px',
-                                height: '64px',
+                                width: '52px',
+                                height: '52px',
                                 background: '#d1fae5',
                                 color: '#10b981',
                                 borderRadius: '50%',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                margin: '0 auto 24px',
-                                fontSize: '32px',
-                                boxShadow: '0 4px 10px rgba(16, 185, 129, 0.1)'
+                                margin: '0 auto 16px',
+                                fontSize: '24px',
+                                boxShadow: '0 3px 8px rgba(16, 185, 129, 0.1)'
                             }}>
                                 ✓
                             </div>
 
                             <h3 style={{
                                 color: '#1e293b',
-                                fontSize: '20px',
+                                fontSize: '18px',
                                 fontWeight: '800',
-                                marginBottom: '12px',
+                                marginBottom: '8px',
                                 letterSpacing: '-0.01em'
                             }}>
                                 Welcome to the Squad!
@@ -349,11 +357,22 @@ export default function FirstTimeLogin() {
                             <p style={{
                                 color: '#64748b',
                                 fontSize: '14px',
-                                marginBottom: '32px',
+                                marginBottom: '20px',
                                 lineHeight: '1.5'
                             }}>
                                 Your account is secure. Remember to keep your new password safe.
                             </p>
+
+                            {/* Terms of Service Placeholder Case */}
+                            <div style={{
+                                height: 'auto',
+                                marginBottom: '24px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px'
+                            }}>
+                                {/* Reserved for Terms of Service checkbox flow */}
+                            </div>
 
                             <button
                                 onClick={goHome}

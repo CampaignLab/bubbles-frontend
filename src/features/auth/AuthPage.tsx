@@ -107,10 +107,10 @@ export default function AuthPage() {
                             SOCIAL BUBBLES
                         </h1>
                         <p style={{
-                            fontSize: '12px',
-                            fontWeight: '600',
+                            fontSize: '13px',
+                            fontWeight: '700',
                             color: '#94a3b8',
-                            letterSpacing: '0.02em',
+                            letterSpacing: '0.04em',
                             margin: 0
                         }}>
                             {mode === 'signin' ? 'LOGIN GATEWAY' : 'FORGOT PASSWORD'}

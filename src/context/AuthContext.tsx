@@ -16,10 +16,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // First check if we have a persisted dev bypass session
             const savedBypass = localStorage.getItem('sb-dev-bypass');
             if (savedBypass && import.meta.env.VITE_BYPASS_ENABLED === 'true') {
-                console.log('[Auth] Restoring dev bypass session from storage');
-                setUser(JSON.parse(savedBypass));
-                setLoading(false);
-                return;
+                const parsed = JSON.parse(savedBypass);
+                // Legacies cleanup: if they have the old name format, boot them so they get the new one
+                if (parsed.user_metadata?.name?.includes('Simulated:')) {
+                    localStorage.removeItem('sb-dev-bypass');
+                } else {
+                    console.log('[Auth] Restoring dev bypass session from storage');
+                    setUser(parsed);
+                    setLoading(false);
+                    return;
+                }
             }
 
             // getUser() is the ONLY way to be sure the user hasn't been deleted in the dashboard.

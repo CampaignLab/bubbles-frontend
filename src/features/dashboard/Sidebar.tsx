@@ -63,7 +63,7 @@ export function Sidebar({ onPageChange, activePage }: SidebarProps) {
                             whiteSpace: 'nowrap',
                             lineHeight: '1.1'
                         }}>
-                            SOCIAL BUBBLES
+                            TEAM BUBBLES
                         </span>
                         <span style={{
                             fontSize: '10px',
