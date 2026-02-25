@@ -82,8 +82,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return () => subscription.unsubscribe();
     }, []);
 
-    const signInWithDevBypass = (email?: string) => {
+    const signInWithDevBypass = async (email?: string) => {
         if (import.meta.env.VITE_BYPASS_ENABLED === 'true') {
+            // Strictly clear any cached Supabase session data before applying a spoofed user
+            // This prevents boundaryService from accidentally fetching real data using an old token.
+            await supabase.auth.signOut();
+
             const devUser: AuthUser = {
                 devBypass: true,
                 id: 'dev-bypass-' + (email ? 'invite' : 'admin'),

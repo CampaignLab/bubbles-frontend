@@ -130,65 +130,18 @@ export const boundaryService = {
     },
 
     /**
-     * Lists saved bubble sessions - merges API samples and Local Cache.
+     * Lists saved bubble sessions - purely from Local Cache now.
      */
     async listSavedBubbles(): Promise<BoundaryMetadata[]> {
-        console.log("🔍 [Service] Listing saved bubbles/sessions...");
-
-        // 1. Get official samples from Cloud/API
-        let apiList: BoundaryMetadata[] = [];
-        try {
-            if (storageConfig.isSupabase) {
-                const bucket = storageConfig.bucketName;
-                console.log("☁️ [Service] Fetching sessions from Supabase Storage 'bubbles' folder");
-                const { data, error } = await supabase.storage.from(bucket).list('bubbles', {
-                    limit: 100,
-                    offset: 0,
-                    sortBy: { column: 'name', order: 'asc' },
-                });
-
-                if (error) {
-                    console.error("❌ [Service] Supabase Bubbles list error:", error);
-                } else if (data) {
-                    apiList = data
-                        .filter(file => file.name.endsWith('.json'))
-                        .map(file => ({
-                            id: file.name.replace('.json', ''),
-                            name: file.name.replace('.json', '')
-                        }));
-                    console.log(`✅ [Service] Found ${apiList.length} global sessions in cloud.`);
-                }
-            } else {
-                const response = await fetch(`${API_BASE}/bubbles/`);
-                if (response.ok) apiList = await response.json();
-            }
-        } catch (e) {
-            console.warn("Could not fetch bubble samples from API", e);
-        }
-
-        // 2. Get user sessions from local cache (ONLY in dev mode or if explicitly enabled)
-        // If we are in Supabase mode (Stage/Prod), we might want to ignore local storage 
-        // to prevent 'ghost' sessions from local development appearing in the cloud UI.
-        const localList = storageConfig.isSupabase ? [] : userCache.list();
-        if (localList.length > 0) {
-            console.log(`🏠 [Service] Found ${localList.length} local sessions in browser storage.`);
-        }
-
-        // 3. Merge (local browser storage overrides API if IDs match)
-        const combined = [...localList];
-        const localIds = new Set(localList.map(l => l.id));
-
-        apiList.forEach(apiItem => {
-            if (!localIds.has(apiItem.id)) {
-                combined.push(apiItem);
-            }
-        });
-
-        return combined;
+        console.log("🔍 [Service] Listing local saved bubbles/sessions...");
+        const localList = userCache.list();
+        console.log(`🏠 [Service] Found ${localList.length} local sessions in browser storage.`);
+        return localList;
     },
 
     /**
      * Internal helper to fetch content from Supabase Storage or standard URL.
+     * Used for Boundaries, NOT sessions.
      */
     async fetchFromStorage(path: string, responseType: 'json' | 'text' = 'json'): Promise<any> {
         if (storageConfig.isSupabase) {
@@ -221,74 +174,28 @@ export const boundaryService = {
 
     /**
      * Saves a custom bubble.
-     * Always saves to Local Cache. 
+     * Always saves strictly to Local Cache. 
      */
     async saveBubble(id: string, geojson: any): Promise<void> {
-        // 1. Always write to user cache (works everywhere)
         userCache.save(id, id, geojson);
-
-        // 2. Sync to cloud/disk
-        if (API_BASE.includes('supabase.co/storage')) {
-            try {
-                const { error } = await supabase.storage.from('data').upload(`bubbles/${id}.json`, JSON.stringify(geojson), {
-                    upsert: true,
-                    contentType: 'application/json'
-                });
-                if (error) throw error;
-            } catch (e) {
-                console.error("Cloud-sync failed:", e);
-            }
-        } else if (import.meta.env.DEV) {
-            try {
-                await fetch(`${API_BASE}/bubbles/${encodeURIComponent(id)}.json`, {
-                    method: 'POST',
-                    body: JSON.stringify(geojson),
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            } catch (e) {
-                console.error("Dev-sync to disk failed:", e);
-            }
-        }
     },
 
     /**
      * Fetches a saved bubble session.
-     * Checks Local Cache first, then falls back to API.
+     * Always fetches strictly from Local Cache.
      */
     async getBubble(id: string): Promise<any> {
-        // 1. Check local cache
         const localData = userCache.get(id);
         if (localData) return localData;
-
-        // 2. Fallback to API/Storage
-        return this.fetchFromStorage(`bubbles/${encodeURIComponent(id)}.json`, 'json');
+        throw new Error(`Session ${id} not found locally.`);
     },
 
     /**
      * Deletes a saved bubble session.
-     * Always removes from Local Cache.
+     * Always deletes strictly from Local Cache.
      */
     async deleteBubble(id: string): Promise<void> {
-        // 1. Remove from local cache
         userCache.delete(id);
-
-        // 2. Sync deletion
-        if (API_BASE.includes('supabase.co/storage')) {
-            try {
-                const { error } = await supabase.storage.from('data').remove([`bubbles/${id}.json`]);
-                if (error) throw error;
-            } catch (e) {
-                console.error("Cloud-sync delete failed:", e);
-            }
-        } else if (import.meta.env.DEV) {
-            try {
-                await fetch(`${API_BASE}/bubbles/${encodeURIComponent(id)}.json`, {
-                    method: 'DELETE'
-                });
-            } catch (e) {
-                console.error("Dev-sync delete failed:", e);
-            }
-        }
     },
 
     /**

@@ -20,10 +20,16 @@ export function useBoundaries(type: 'ward' | 'constituency' = 'constituency') {
         setSelectedId(null);
         setGeojson(null);
 
-        // Contextual logging for spoofed users. 
-        // Logic for local (Dev) vs Remote (Stage) is handled in boundaryService.
+        // Security: Spoofed users (devBypass) should not see gated data from the remote bucket.
+        // If the environment is pointing to Supabase, we block the fetch entirely.
+        // If the environment is pointing to Local Mock Data, we allow it for testing.
         if (user && 'devBypass' in user) {
-            console.log('[Boundaries] Using simulated session. Data source:', import.meta.env.DEV ? 'Local' : 'Supabase');
+            const isSupabase = import.meta.env.VITE_API_URL?.includes('supabase.co') || import.meta.env.VITE_SUPABASE_URL;
+            if (isSupabase) {
+                console.warn('[Boundaries] Spoofed user detected. Remote S3 Access restricted.');
+                return;
+            }
+            console.log('[Boundaries] Using simulated session. Data source: Local');
         }
 
         boundaryService.listBoundaries(type).then(setAvailableBoundaries);
