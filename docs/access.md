@@ -22,9 +22,14 @@ If a user forgets their password:
 ![Login Gateway Interface](./images/login.png)
 
 2. Click **"Forgot Password?"** (located right above the Sign In button).
+
+![Recovery Mode](./images/forgot_password.png)
+
 3. Enter the registered email address.
 4. **Silent Confirmation**: The system will confirm that a link has been sent (regardless of whether the email exists) to protect against email enumeration.
 5. **Reset**: Follow the link in the email to set a new password.
+
+![New Password Setup](./images/reset_password.png)
 
 ### Strict Verification Enforcement
 - **Unverified Sessions**: The system will automatically log out and clear sessions for users who have not confirmed their email address.
@@ -43,3 +48,11 @@ Administrators can manage users directly in the [Supabase Dashboard](https://sup
 
 - **Rate Limits**: Password resets are rate-limited to prevent spam.
 - **Email Templates**: Branded HTML templates for Invites and Resets are configured in the Supabase "Email Templates" settings.
+
+### Email Templates (Previews)
+
+*Placeholder for real email client screenshots*
+
+- **Invite Email**: Sent when a user is invited to the squad.
+- **Reset Password Email**: Sent when a user requests a password recovery.
+- **Verification Email**: Sent for new signups.
