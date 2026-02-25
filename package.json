@@ -11,8 +11,8 @@
     "preview": "vite preview",
     "stage": "npm run build -- --mode staging && vite preview --mode staging",
     "stage:dev": "vite --mode staging",
-    "deploy": "npm run build && gh-pages -d dist -m",
-    "deploy:staging": "npm run build -- --mode staging && gh-pages -d dist -m"
+    "deploy": "rimraf node_modules/.cache/gh-pages && npm run build && gh-pages -d dist -m",
+    "deploy:staging": "rimraf node_modules/.cache/gh-pages && npm run build -- --mode staging && gh-pages -d dist -m"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",
