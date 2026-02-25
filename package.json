@@ -12,8 +12,8 @@
     "stage": "npm run build -- --mode staging && vite preview --mode staging",
     "stage:dev": "vite --mode staging",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist",
-    "deploy:staging": "npm run build -- --mode staging && gh-pages -d dist"
+    "deploy": "node scripts/deploy.js",
+    "deploy:staging": "node scripts/deploy.js --staging"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",

@@ -27,7 +27,10 @@ export default function AuthPage() {
                 if (authError) throw authError;
             } else {
                 // Forgot Password Mode
-                const redirectUrl = window.location.origin + window.location.pathname;
+                const origin = window.location.origin;
+                const path = window.location.pathname;
+                const redirectUrl = origin + (path.endsWith('/') ? path : path + '/');
+
                 const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
                     redirectTo: redirectUrl,
                 });
