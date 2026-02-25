@@ -8,8 +8,22 @@ import { useAuth } from './context/AuthContext';
 function App() {
   const { user, loading } = useAuth();
 
-  // Lightweight hash router state
-  const [route, setRoute] = useState<'main' | 'verify' | 'reset-password'>('main');
+  // Synchronous initial route check to catch the hash before it's cleared by Supabase/Vite
+  const [route, setRoute] = useState<'main' | 'verify' | 'reset-password'>(() => {
+    const hash = window.location.hash;
+    const search = window.location.search;
+    const sParams = new URLSearchParams(search);
+    const hParams = new URLSearchParams(hash.replace('#', ''));
+
+    const hasError = sParams.has('error') || sParams.has('error_code') ||
+      hParams.has('error') || hParams.has('error_code');
+
+    if (hash.includes('type=recovery')) return 'reset-password';
+    if (hash.includes('type=signup') || hash.includes('type=invite') ||
+      hash.includes('type=magiclink') || hasError) return 'verify';
+
+    return 'main';
+  });
 
   useEffect(() => {
     // Only remove the index.html splash screen once the initial auth state is resolved
@@ -19,17 +33,14 @@ function App() {
   }, [loading]);
 
   useEffect(() => {
-    // 1. Initial check on mount
     const checkHashRoute = () => {
       const hash = window.location.hash;
       const search = window.location.search;
+      const sParams = new URLSearchParams(search);
+      const hParams = new URLSearchParams(hash.replace('#', ''));
 
-      // Supabase can put errors in either the search query or the hash fragment
-      const searchParams = new URLSearchParams(search);
-      const hashParams = new URLSearchParams(hash.replace('#', ''));
-
-      const hasError = searchParams.has('error') || searchParams.has('error_code') ||
-        hashParams.has('error') || hashParams.has('error_code');
+      const hasError = sParams.has('error') || sParams.has('error_code') ||
+        hParams.has('error') || hParams.get('error_code');
 
       if (hash.includes('type=recovery')) {
         setRoute('reset-password');
@@ -41,9 +52,7 @@ function App() {
       }
     };
 
-    checkHashRoute();
-
-    // 2. Listen for manual or programmatic hash changes (e.g. back buttons on the auth screens)
+    // Listen for manual or programmatic hash changes
     window.addEventListener('hashchange', checkHashRoute);
     return () => window.removeEventListener('hashchange', checkHashRoute);
   }, []);
