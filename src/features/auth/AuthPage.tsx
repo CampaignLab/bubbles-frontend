@@ -303,29 +303,9 @@ export default function AuthPage() {
                     alignItems: 'center',
                     gap: '12px'
                 }}>
-                    <button
-                        onClick={signInWithDevBypass}
-                        style={{
-                            background: 'none',
-                            border: '1px solid #cbd5e1',
-                            color: '#94a3b8',
-                            fontSize: '11px',
-                            padding: '6px 12px',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            letterSpacing: '0.05em',
-                            fontWeight: '600'
-                        }}
-                    >
-                        BYPASS LOGIN (DASHBOARD)
-                    </button>
-
-                    {mode === 'forgot-password' && (
+                    {mode === 'signin' && (
                         <button
-                            onClick={() => {
-                                // Simulate an invite link hash to test the UI flow
-                                window.location.hash = '#type=invite&access_token=mock_token';
-                            }}
+                            onClick={signInWithDevBypass}
                             style={{
                                 background: 'none',
                                 border: '1px solid #cbd5e1',
@@ -338,8 +318,63 @@ export default function AuthPage() {
                                 fontWeight: '600'
                             }}
                         >
-                            SIMULATE INVITE (UI TEST)
+                            BYPASS LOGIN (DASHBOARD)
                         </button>
+                    )}
+
+                    {mode === 'forgot-password' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', alignItems: 'center' }}>
+                            <button
+                                onClick={async () => {
+                                    if (!email) {
+                                        setError('Enter an email to simulate the invite flow.');
+                                        return;
+                                    }
+
+                                    setLoading(true);
+                                    try {
+                                        // "Paired Logic": We check if the user exists in the actual live Supabase DB
+                                        // We use signUp with a random password because it's a reliable 
+                                        // way to detect 'User already registered' without an admin key.
+                                        const { error: checkError } = await supabase.auth.signUp({
+                                            email,
+                                            password: Math.random().toString(36),
+                                            options: { emailRedirectTo: import.meta.env.VITE_REDIRECT_URL }
+                                        });
+
+                                        if (checkError && checkError.message.includes('already registered')) {
+                                            // USER EXISTS: Simulate the "Already Registered" error flow
+                                            window.location.hash = `#type=invite&error_code=user_already_exists&email=${encodeURIComponent(email)}`;
+                                        } else {
+                                            // USER NEW: Simulate the "Accept Invite" flow
+                                            window.location.hash = `#type=invite&access_token=dev_mock_token&email=${encodeURIComponent(email)}`;
+                                        }
+                                    } catch (err) {
+                                        console.error('Simulation check failed:', err);
+                                        // Fallback to happy path if something weird happens with the API
+                                        window.location.hash = `#type=invite&access_token=dev_mock_token&email=${encodeURIComponent(email)}`;
+                                    } finally {
+                                        setLoading(false);
+                                    }
+                                }}
+                                disabled={loading}
+                                style={{
+                                    background: 'none',
+                                    border: '1px solid #cbd5e1',
+                                    color: '#94a3b8',
+                                    fontSize: '11px',
+                                    padding: '6px 12px',
+                                    borderRadius: '4px',
+                                    cursor: loading ? 'not-allowed' : 'pointer',
+                                    letterSpacing: '0.05em',
+                                    fontWeight: '600',
+                                    width: 'fit-content',
+                                    opacity: loading ? 0.5 : 1
+                                }}
+                            >
+                                {loading ? 'CHECKING...' : 'SIMULATE INVITE (AUTO-DETECT)'}
+                            </button>
+                        </div>
                     )}
                 </div>
             )}

@@ -23,9 +23,17 @@ export default function VerifyEmailPage() {
         const errorCode = sParams.get('error_code') || hParams.get('error_code');
         const errorDesc = sParams.get('error_description') || hParams.get('error_description');
 
-        if (error === 'access_denied' || errorCode === 'otp_expired') {
-            setStatus('expired');
-            setErrorMessage(errorDesc ? decodeURIComponent(errorDesc).replace(/\+/g, ' ') : 'Verification link has expired.');
+        if (error === 'access_denied' || errorCode === 'otp_expired' || errorCode === 'user_already_exists') {
+            if (errorCode === 'user_already_exists') {
+                setStatus('error');
+                setErrorMessage('This account has already been registered. Please sign in with your email and password.');
+            } else if (errorCode === 'otp_expired') {
+                setStatus('expired');
+                setErrorMessage('Verification link has expired.');
+            } else {
+                setStatus('expired');
+                setErrorMessage(errorDesc ? decodeURIComponent(errorDesc).replace(/\+/g, ' ') : 'Verification link has expired.');
+            }
             return;
         }
 
@@ -43,7 +51,14 @@ export default function VerifyEmailPage() {
         setEmailType(hashType);
 
         if (hashType === 'invite') {
-            setStatus('confirm_invite');
+            // For developer simulations, we check if they want to test the "User already exists" scenario
+            const mockEmail = params.get('email');
+            if (mockEmail && mockEmail.toLowerCase().includes('exist')) {
+                setStatus('error');
+                setErrorMessage('A user with this email address has already been registered.');
+            } else {
+                setStatus('confirm_invite');
+            }
         } else {
             // Auto-verify for signup/magiclink
             const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
