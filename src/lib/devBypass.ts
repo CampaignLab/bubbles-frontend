@@ -17,18 +17,21 @@ export const DEV_BYPASS_CONFIG = {
  * @returns A standardized AuthUser object that bypasses real Supabase auth.
  */
 export function createDevUser(email?: string): AuthUser {
+    if (import.meta.env.VITE_BYPASS_ENABLED !== 'true') {
+        throw new Error("Security Violation: Dev User creation attempted in production environment.");
+    }
     const isInvite = !!email;
     const finalEmail = email || DEV_BYPASS_CONFIG.DEFAULT_EMAIL;
 
     return {
         devBypass: true,
-        id: `dev-bypass-${isInvite ? 'invite' : 'admin'}`,
+        id: `dev-bypass-${isInvite ? 'invite' : 'login'}`,
         email: finalEmail,
         app_metadata: {
             role: DEV_BYPASS_CONFIG.ROLE.toLowerCase()
         },
         user_metadata: {
-            name: `${DEV_BYPASS_CONFIG.NAME} (${isInvite ? 'Invite' : 'Admin'})`
+            name: `${DEV_BYPASS_CONFIG.NAME} (${isInvite ? 'Invite' : 'login'})`
         },
         aud: 'authenticated',
         created_at: new Date().toISOString()

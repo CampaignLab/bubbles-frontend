@@ -30,7 +30,7 @@ function App() {
       console.log('[App] Routing to: reset-password');
       return 'reset-password';
     }
-    if (hash.includes('type=signup')) {
+    if (hash.includes('type=signup') && import.meta.env.VITE_BYPASS_ENABLED === 'true') {
       console.log('[App] Routing to: hidden-signup');
       return 'hidden-signup';
     }
@@ -75,7 +75,7 @@ function App() {
         setRoute('hidden-signup');
       } else if (hash.includes('type=recovery')) {
         setRoute('reset-password');
-      } else if (hash.includes('type=signup')) {
+      } else if (hash.includes('type=signup') && import.meta.env.VITE_BYPASS_ENABLED === 'true') {
         setRoute('hidden-signup');
       } else if (hash.includes('type=magiclink') || hash.includes('type=invite') || hasError) {
         setRoute('first-time-login');

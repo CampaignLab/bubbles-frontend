@@ -107,7 +107,7 @@ export default function FirstTimeLogin() {
         e.preventDefault();
         setErrorMessage('');
 
-        if (user && (user as any).devBypass) {
+        if (user && (user as any).devBypass && import.meta.env.VITE_BYPASS_ENABLED === 'true') {
             setStatus('success');
             return;
         }
