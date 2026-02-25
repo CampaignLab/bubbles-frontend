@@ -29,7 +29,10 @@ export default function AuthPage() {
                 // Forgot Password Mode
                 const origin = window.location.origin;
                 const path = window.location.pathname;
-                const redirectUrl = origin + (path.endsWith('/') ? path : path + '/');
+                const fallbackUrl = origin + (path.endsWith('/') ? path : path + '/');
+
+                // Prioritize the URL from .env if it exists
+                const redirectUrl = import.meta.env.VITE_REDIRECT_URL || fallbackUrl;
 
                 const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
                     redirectTo: redirectUrl,
@@ -291,25 +294,54 @@ export default function AuthPage() {
                 </div>
             </div>
 
-            {/* Optional Dev Bypass Button */}
-            {import.meta.env.VITE_ALLOW_BYPASS === 'true' && (
-                <button
-                    onClick={signInWithDevBypass}
-                    style={{
-                        marginTop: '24px',
-                        background: 'none',
-                        border: '1px solid #cbd5e1',
-                        color: '#94a3b8',
-                        fontSize: '11px',
-                        padding: '6px 12px',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        letterSpacing: '0.05em',
-                        fontWeight: '600'
-                    }}
-                >
-                    BYPASS LOGIN (DEV)
-                </button>
+            {/* Developer Tools (Visible only when bypass is enabled) */}
+            {import.meta.env.VITE_BYPASS_ENABLED === 'true' && (
+                <div style={{
+                    marginTop: '24px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '12px'
+                }}>
+                    <button
+                        onClick={signInWithDevBypass}
+                        style={{
+                            background: 'none',
+                            border: '1px solid #cbd5e1',
+                            color: '#94a3b8',
+                            fontSize: '11px',
+                            padding: '6px 12px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            letterSpacing: '0.05em',
+                            fontWeight: '600'
+                        }}
+                    >
+                        BYPASS LOGIN (DASHBOARD)
+                    </button>
+
+                    {mode === 'forgot-password' && (
+                        <button
+                            onClick={() => {
+                                // Simulate an invite link hash to test the UI flow
+                                window.location.hash = '#type=invite&access_token=mock_token';
+                            }}
+                            style={{
+                                background: 'none',
+                                border: '1px solid #cbd5e1',
+                                color: '#94a3b8',
+                                fontSize: '11px',
+                                padding: '6px 12px',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                letterSpacing: '0.05em',
+                                fontWeight: '600'
+                            }}
+                        >
+                            SIMULATE INVITE (UI TEST)
+                        </button>
+                    )}
+                </div>
             )}
         </div>
     );

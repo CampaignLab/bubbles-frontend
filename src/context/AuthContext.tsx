@@ -73,7 +73,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const signInWithDevBypass = () => {
-        if (import.meta.env.VITE_ALLOW_BYPASS === 'true') {
+        // Checking directly against import.meta.env ensures building-time tree-shaking
+        // and prevents runtime UI "hacking" to enable the bypass branch.
+        if (import.meta.env.VITE_BYPASS_ENABLED === 'true') {
             // Create a dummy user for dev purposes
             const devUser: AuthUser = {
                 devBypass: true,
