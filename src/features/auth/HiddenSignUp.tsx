@@ -163,12 +163,20 @@ export default function HiddenSignUp() {
                         }}>
                             B
                         </div>
-                        <h1 style={{ fontSize: '22px', fontWeight: '800', letterSpacing: '0.05em', color: '#1e293b', margin: '0' }}>
-                            {status === 'set_password' ? 'FINAL STEPS' : 'VERIFICATION'}
+                        <h1 style={{ fontSize: '22px', fontWeight: '800', letterSpacing: '0.05em', color: '#1e293b', margin: '0 0 6px 0' }}>
+                            TEAM BUBBLES
                         </h1>
+                        <p style={{ fontSize: '13px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.04em', margin: 0 }}>
+                            {status === 'verifying' && 'VERIFYING'}
+                            {status === 'signup_form' && 'REGISTRATION'}
+                            {status === 'check_email' && 'CHECK EMAIL'}
+                            {status === 'success' && 'WELCOME'}
+                            {status === 'error' && 'ERROR'}
+                            {status === 'expired' && 'EXPIRED'}
+                        </p>
                     </div>
 
-                    {status === 'verifying' && <div style={{ textAlign: 'center', color: '#64748b' }}>Processing token...</div>}
+                    {status === 'verifying' && <div style={{ textAlign: 'center', color: '#64748b' }}>Processing...</div>}
 
                     {status === 'expired' && (
                         <div style={{ textAlign: 'center' }}>

@@ -9,10 +9,13 @@
     "build:404": "node -e \"require('fs').copyFileSync('dist/index.html', 'dist/404.html')\"",
     "lint": "eslint .",
     "preview": "vite preview",
-    "stage": "npm run build -- --mode staging && vite preview --mode staging",
+    "stage": "npm run build:staging && vite preview --mode staging",
     "stage:dev": "vite --mode staging",
-    "deploy": "rimraf node_modules/.cache/gh-pages && npm run build && gh-pages -d dist",
-    "deploy:staging": "rimraf node_modules/.cache/gh-pages && npm run build -- --mode staging && gh-pages -d dist"
+    "build:staging": "tsc -b && vite build --mode staging && npm run build:404",
+    "predeploy": "rimraf node_modules/.cache/gh-pages && npm run build",
+    "deploy": "gh-pages -d dist",
+    "predeploy:staging": "rimraf node_modules/.cache/gh-pages && npm run build:staging",
+    "deploy:staging": "gh-pages -d dist"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",
