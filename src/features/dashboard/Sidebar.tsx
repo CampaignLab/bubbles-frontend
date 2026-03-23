@@ -37,7 +37,7 @@ export function Sidebar({ onPageChange, activePage }: SidebarProps) {
                     transition: 'padding 0.3s'
                 }}
             >
-                {/* Logo Placeholder - Team Bubbles */}
+                {/* Logo Placeholder - Social Bubbles */}
                 <div style={{
                     width: '32px',
                     height: '32px',
@@ -63,7 +63,7 @@ export function Sidebar({ onPageChange, activePage }: SidebarProps) {
                             whiteSpace: 'nowrap',
                             lineHeight: '1.1'
                         }}>
-                            TEAM BUBBLES
+                            SOCIAL BUBBLES
                         </span>
                         <span style={{
                             fontSize: '10px',

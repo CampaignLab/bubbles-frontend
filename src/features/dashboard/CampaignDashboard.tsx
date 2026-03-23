@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import { fetchAdAccounts, fetchCampaigns, createCampaign } from '@/services/metaAdsService';
-import type { AdAccount, AdCampaign } from '@/services/metaAdsService';
+import { adManager } from '@/services/adPlatformManager';
+import type { AdPlatformAccount, AdPlatformCampaign } from '@/types/ads';
 
 export function CampaignDashboard() {
     const { user } = useAuth();
     const [isLinking, setIsLinking] = useState(false);
     const [hasMetaLinked, setHasMetaLinked] = useState(false);
+    const [metaProfile, setMetaProfile] = useState<{ name?: string; email?: string } | null>(null);
 
-    const [adAccounts, setAdAccounts] = useState<AdAccount[]>([]);
+    const [adAccounts, setAdAccounts] = useState<AdPlatformAccount[]>([]);
     const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
-    const [campaigns, setCampaigns] = useState<AdCampaign[]>([]);
+    const [campaigns, setCampaigns] = useState<AdPlatformCampaign[]>([]);
 
     const [loadingData, setLoadingData] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -22,22 +22,28 @@ export function CampaignDashboard() {
     const [isPolitical, setIsPolitical] = useState(false);
     const [creating, setCreating] = useState(false);
 
+    // If the user is logged in via Dev Bypass, route them to the Mock provider
+    // Otherwise, connect them to the real Meta API
+    const providerType = user && 'devBypass' in user ? 'mock' : 'meta';
+    const provider = adManager.getProvider(providerType);
+
     useEffect(() => {
-        const checkMetaLink = async () => {
+        const checkConnection = async () => {
             if (!user) return;
-            // Check if there is a facebook identity linked
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user?.identities) {
-                const linked = session.user.identities.some(id => id.provider === 'facebook');
+            try {
+                const linked = await provider.isConnected();
                 setHasMetaLinked(linked);
-            } else if (user && 'devBypass' in user) {
-                // If Dev Bypass, we can simulate linking logic later, mock it for now
-                setHasMetaLinked(false);
+                if (linked) {
+                    const profile = await provider.getProfile();
+                    setMetaProfile(profile);
+                }
+            } catch (err) {
+                console.error("Failed checking connection status:", err);
             }
         };
 
-        checkMetaLink();
-    }, [user]);
+        checkConnection();
+    }, [user, provider]);
 
     // Fetch accounts when linked
     useEffect(() => {
@@ -47,45 +53,32 @@ export function CampaignDashboard() {
             setLoadingData(true);
             setError(null);
             try {
-                if (user && 'devBypass' in user) {
-                    // MOCK DATA for Bypass User
-                    const mockAccount = { id: '1', account_id: 'act_12345', name: 'Mock Ad Account', currency: 'GBP' };
-                    setAdAccounts([mockAccount]);
-                    setSelectedAccountId(mockAccount.id);
-                    setCampaigns([
-                        { id: 'c1', name: 'London Central Test', status: 'ACTIVE', objective: 'OUTCOME_LEADS', special_ad_categories: ['NONE'] },
-                        { id: 'c2', name: 'Manchester North Poltical', status: 'PAUSED', objective: 'OUTCOME_ENGAGEMENT', special_ad_categories: ['ISSUES_ELECTIONS_POLITICS'] }
-                    ]);
-                    return;
-                }
-
-                const accounts = await fetchAdAccounts();
+                const accounts = await provider.fetchAccounts();
                 setAdAccounts(accounts);
                 if (accounts.length > 0) {
                     setSelectedAccountId(accounts[0].id);
-                    const camps = await fetchCampaigns(accounts[0].id);
+                    const camps = await provider.fetchCampaigns(accounts[0].id);
                     setCampaigns(camps);
                 }
             } catch (err: any) {
-                console.error("Failed to load Meta data:", err);
-                setError(err.message || 'Failed to communicate with Meta Ads API.');
+                console.error("Failed to load ad data:", err);
+                setError(err.message || 'Failed to communicate with Ad Platform API.');
             } finally {
                 setLoadingData(false);
             }
         };
 
         loadData();
-    }, [hasMetaLinked, user]);
+    }, [hasMetaLinked, provider]);
 
     // Handle account change
     const handleAccountChange = async (accountId: string) => {
         setSelectedAccountId(accountId);
-        if (user && 'devBypass' in user) return; // Keep mock data
 
         setLoadingData(true);
         setError(null);
         try {
-            const camps = await fetchCampaigns(accountId);
+            const camps = await provider.fetchCampaigns(accountId);
             setCampaigns(camps);
         } catch (err: any) {
             setError(err.message || 'Failed to load campaigns.');
@@ -101,31 +94,11 @@ export function CampaignDashboard() {
         setCreating(true);
         setError(null);
         try {
-            if (user && 'devBypass' in user) {
-                // Mock create
-                setTimeout(() => {
-                    setCampaigns(prev => [{
-                        id: 'c' + Date.now(),
-                        name: newCampaignName,
-                        status: 'PAUSED',
-                        objective: 'OUTCOME_LEADS',
-                        special_ad_categories: isPolitical ? ['ISSUES_ELECTIONS_POLITICS'] : ['NONE']
-                    }, ...prev]);
-                    setShowCreateForm(false);
-                    setNewCampaignName('');
-                    setIsPolitical(false);
-                    setCreating(false);
-                }, 1000);
-                return;
-            }
-
-            const newCamp = await createCampaign({
-                adAccountId: selectedAccountId,
-                name: newCampaignName,
-                objective: 'OUTCOME_LEADS', // default for now
-                status: 'PAUSED',
+            const newCamp = await provider.createCampaign(
+                selectedAccountId,
+                newCampaignName,
                 isPolitical
-            });
+            );
 
             setCampaigns(prev => [newCamp, ...prev]);
             setShowCreateForm(false);
@@ -134,46 +107,38 @@ export function CampaignDashboard() {
         } catch (err: any) {
             setError(err.message || 'Failed to create campaign.');
         } finally {
-            if (!(user && 'devBypass' in user)) setCreating(false);
+            setCreating(false);
         }
     };
 
     const handleConnectMeta = async () => {
         setIsLinking(true);
+        setError(null);
         try {
-            if (user && 'devBypass' in user) {
-                // Dev Bypass simulation
-                setTimeout(() => {
-                    setHasMetaLinked(true);
-                    setIsLinking(false);
-                }, 1000);
-                return;
-            }
+            await provider.connect();
+            // Note: connect will trigger an OAuth redirect, 
+            // so execution may stop here as the page reloads.
+        } catch (err: any) {
+            setError(`Connection Error: ${err.message}`);
+            setIsLinking(false);
+        }
+    };
 
-            const origin = window.location.origin;
-            const path = window.location.pathname;
-            const fallbackUrl = origin + (path.endsWith('/') ? path : path + '/');
-            const redirectUrl = import.meta.env.VITE_REDIRECT_URL || fallbackUrl;
-
-            // Use Supabase linkIdentity to connect to the current session
-            const { error } = await supabase.auth.linkIdentity({
-                provider: 'facebook',
-                options: {
-                    scopes: 'ads_management ads_read public_profile',
-                    redirectTo: redirectUrl
-                }
-            });
-
-            if (error) {
-                console.error("Error linking Meta identity:", error);
-                alert("Failed to connect Meta Ads.");
-            }
-        } catch (error) {
-            console.error("Meta linking error", error);
+    const handleDisconnectMeta = async () => {
+        if (!window.confirm("Are you sure you want to disconnect Meta Ads?")) return;
+        setIsLinking(true);
+        setError(null);
+        try {
+            await provider.disconnect();
+            setHasMetaLinked(false);
+            setMetaProfile(null);
+            setAdAccounts([]);
+            setCampaigns([]);
+            setSelectedAccountId(null);
+        } catch (err: any) {
+            setError(`Disconnect Error: ${err.message}`);
         } finally {
-            if (!(user && 'devBypass' in user)) {
-                setIsLinking(false);
-            }
+            setIsLinking(false);
         }
     };
 
@@ -208,7 +173,30 @@ export function CampaignDashboard() {
                     </button>
                 )}
                 {hasMetaLinked && (
-                    <div style={{ display: 'flex', gap: '12px' }}>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        {metaProfile && (
+                            <div style={{ fontSize: '12px', color: '#64748b', marginRight: '8px' }}>
+                                Connected as <strong>{metaProfile.name}</strong>
+                            </div>
+                        )}
+                        <button
+                            onClick={handleDisconnectMeta}
+                            disabled={isLinking}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: '#fef2f2',
+                                color: '#ef4444',
+                                border: '1px solid #fecaca',
+                                borderRadius: '6px',
+                                fontWeight: '600',
+                                fontSize: '12px',
+                                cursor: isLinking ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.2s',
+                                opacity: isLinking ? 0.7 : 1
+                            }}
+                        >
+                            Disconnect
+                        </button>
                         {adAccounts.length > 0 && (
                             <select
                                 value={selectedAccountId || ''}
@@ -353,7 +341,7 @@ export function CampaignDashboard() {
                                     </div>
                                 </div>
                                 <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{camp.name}</div>
-                                {camp.special_ad_categories?.includes('ISSUES_ELECTIONS_POLITICS') && (
+                                {camp.isPolitical && (
                                     <div style={{ marginTop: '12px', fontSize: '11px', color: '#b91c1c', backgroundColor: '#fef2f2', padding: '4px 8px', borderRadius: '4px', display: 'inline-block' }}>
                                         Registered Political Ad
                                     </div>
